@@ -1,0 +1,17 @@
+# 弃用的芋道源码
+yudao/
+yudao-mall-uniapp/
+yudao-ui-admin-vue3/
+yudao-alt/
+
+# 传输临时包
+crmeb-server-src.tgz
+
+# 日志与运行时
+*.log
+crmeb-src/runtime/
+crmeb-src/public/uploads/
+
+# IDE
+.idea/
+.vscode/
