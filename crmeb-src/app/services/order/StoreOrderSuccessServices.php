@@ -85,6 +85,7 @@ class StoreOrderSuccessServices extends BaseServices
             } else {
                 $this->dao->update($orderInfo['id'], [
                     'status' => 1,
+                    'pickup_at' => time(),
                     'verify_code' => $printQueueServices->generateVerifyCode()
                 ]);
             }

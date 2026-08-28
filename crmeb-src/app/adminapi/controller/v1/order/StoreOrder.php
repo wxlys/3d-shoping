@@ -117,6 +117,70 @@ class StoreOrder extends AuthController
     }
 
     /**
+     * 开始打印（排队中 -> 制作中）
+     * @return mixed
+     */
+    public function printStart()
+    {
+        [$orderId] = $this->request->postMore([['order_id', 0]], true);
+        if (!$orderId) return app('json')->fail('参数错误');
+        $res = app()->make(\app\services\printqueue\PrintQueueServices::class)->startPrint((int)$orderId);
+        return $res ? app('json')->success('已开始打印') : app('json')->fail('订单状态不允许该操作');
+    }
+
+    /**
+     * 打印完成（制作中 -> 待取）
+     * @return mixed
+     */
+    public function printComplete()
+    {
+        [$orderId] = $this->request->postMore([['order_id', 0]], true);
+        if (!$orderId) return app('json')->fail('参数错误');
+        $res = app()->make(\app\services\printqueue\PrintQueueServices::class)->completePrint((int)$orderId);
+        return $res ? app('json')->success('打印完成，订单进入待取') : app('json')->fail('订单状态不允许该操作');
+    }
+
+    /**
+     * 调整排期
+     * @return mixed
+     */
+    public function adjustSchedule()
+    {
+        [$orderId, $expectedStartAt] = $this->request->postMore([
+            ['order_id', 0],
+            ['expected_start_at', 0],
+        ], true);
+        if (!$orderId || !$expectedStartAt) return app('json')->fail('参数错误');
+        $res = app()->make(\app\services\printqueue\PrintQueueServices::class)->adjustSchedule((int)$orderId, (int)$expectedStartAt);
+        return $res ? app('json')->success('排期已调整') : app('json')->fail('订单状态不允许该操作');
+    }
+
+    /**
+     * 更新打印进度备注
+     * @return mixed
+     */
+    public function updateProgress()
+    {
+        [$orderId, $note] = $this->request->postMore([
+            ['order_id', 0],
+            ['progress_note', ''],
+        ], true);
+        if (!$orderId) return app('json')->fail('参数错误');
+        app()->make(\app\services\printqueue\PrintQueueServices::class)->updateProgress((int)$orderId, (string)$note);
+        return app('json')->success('进度已更新');
+    }
+
+    /**
+     * 手动触发自动收货（测试用）
+     * @return mixed
+     */
+    public function runAutoReceipt()
+    {
+        $count = app()->make(\app\services\printqueue\PrintQueueServices::class)->autoReceipt();
+        return app('json')->success('自动收货完成', ['count' => $count]);
+    }
+
+    /**
      * 订单号核销
      * @param StoreOrderWriteOffServices $services
      * @param $order_id

@@ -26,6 +26,16 @@ Route::group('order', function () {
     Route::get('chart', 'v1.order.StoreOrder/chart')->name('StoreOrderChart')->option(['real_name' => '订单头部数据']);
     //订单核销
     Route::post('write', 'v1.order.StoreOrder/write_order')->name('writeOrder')->option(['real_name' => '订单核销']);
+    //开始打印
+    Route::post('print/start', 'v1.order.StoreOrder/printStart')->option(['real_name' => '开始打印']);
+    //打印完成
+    Route::post('print/complete', 'v1.order.StoreOrder/printComplete')->option(['real_name' => '打印完成']);
+    //调整排期
+    Route::post('print/adjust_schedule', 'v1.order.StoreOrder/adjustSchedule')->option(['real_name' => '调整排期']);
+    //打印进度备注
+    Route::post('print/progress', 'v1.order.StoreOrder/updateProgress')->option(['real_name' => '打印进度备注']);
+    //自动收货（测试用）
+    Route::post('print/auto_receipt', 'v1.order.StoreOrder/runAutoReceipt')->option(['real_name' => '自动收货']);
     //订单号核销
     Route::put('write_update/:order_id', 'v1.order.StoreOrder/write_update')->name('writeOrderUpdate')->option(['real_name' => '订单号核销']);
     //获取订单编辑表格

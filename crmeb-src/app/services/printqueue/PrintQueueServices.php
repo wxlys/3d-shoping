@@ -55,7 +55,7 @@ class PrintQueueServices
      * @param int $deviceId
      * @return void
      */
-    public function recalcQueue(int $deviceId): void
+    public function recalcQueue(int $deviceId, int $fromQueueNo = 0, int $baseOverride = 0): void
     {
         $device = Db::name('print_device')->where('id', $deviceId)->where('is_del', 0)->find();
         if (!$device) {
@@ -69,10 +69,16 @@ class PrintQueueServices
             ->where('is_del', 0)
             ->max('expected_end_at');
         $base = max($now, $anchor);
+        if ($fromQueueNo > 0 && $baseOverride > 0) {
+            $base = $baseOverride;
+        }
         $queueList = Db::name('print_queue')
             ->where('device_id', $deviceId)
             ->where('status', self::STATUS_WAIT)
             ->where('is_del', 0)
+            ->when($fromQueueNo > 0, function ($query) use ($fromQueueNo) {
+                $query->where('queue_no', '>', $fromQueueNo);
+            })
             ->order('queue_no asc')
             ->select()
             ->toArray();
@@ -129,6 +135,150 @@ class PrintQueueServices
         $flowCm3PerMin = $speed * $efficiency * 60 / 1000;
         $printMinutes = $flowCm3PerMin > 0 ? (int)ceil($materialVolume / $flowCm3PerMin) : 0;
         return $printMinutes + $setupMinutes;
+    }
+
+    /**
+     * 开始打印：排队中 -> 制作中
+     * @param int $orderId
+     * @return bool
+     */
+    public function startPrint(int $orderId): bool
+    {
+        $queue = Db::name('print_queue')->where('order_id', $orderId)->where('is_del', 0)->find();
+        if (!$queue || (int)$queue['status'] !== self::STATUS_WAIT) {
+            return false;
+        }
+        Db::name('print_queue')->where('id', (int)$queue['id'])->update([
+            'status' => self::STATUS_PRINTING,
+            'actual_start_at' => time(),
+            'update_time' => time(),
+        ]);
+        Db::name('store_order')->where('id', $orderId)->update(['queue_status' => self::STATUS_PRINTING]);
+        return true;
+    }
+
+    /**
+     * 打印完成：制作中 -> 待取（生成取件码、记录取件开始时间）
+     * @param int $orderId
+     * @return bool
+     */
+    public function completePrint(int $orderId): bool
+    {
+        $queue = Db::name('print_queue')->where('order_id', $orderId)->where('is_del', 0)->find();
+        if (!$queue || (int)$queue['status'] !== self::STATUS_PRINTING) {
+            return false;
+        }
+        $order = Db::name('store_order')->where('id', $orderId)->find();
+        $now = time();
+        $verifyCode = (string)($order['verify_code'] ?? '');
+        if ($verifyCode === '') {
+            $verifyCode = $this->generateVerifyCode();
+        }
+        Db::name('print_queue')->where('id', (int)$queue['id'])->update([
+            'status' => self::STATUS_DONE,
+            'actual_end_at' => $now,
+            'update_time' => $now,
+        ]);
+        Db::name('store_order')->where('id', $orderId)->update([
+            'queue_status' => self::STATUS_DONE,
+            'status' => 1,
+            'pickup_at' => $now,
+            'verify_code' => $verifyCode,
+        ]);
+        $this->recalcQueue((int)$queue['device_id']);
+        return true;
+    }
+
+    /**
+     * 管理员调整排期（仅排队中订单），并重算后续队列
+     * @param int $orderId
+     * @param int $expectedStartAt
+     * @return bool
+     */
+    public function adjustSchedule(int $orderId, int $expectedStartAt): bool
+    {
+        $queue = Db::name('print_queue')->where('order_id', $orderId)->where('is_del', 0)->find();
+        if (!$queue || (int)$queue['status'] !== self::STATUS_WAIT) {
+            return false;
+        }
+        $order = Db::name('store_order')->where('id', $orderId)->find();
+        $device = Db::name('print_device')->where('id', (int)$queue['device_id'])->find();
+        $totalMinutes = $this->computeMinutes(
+            (string)($order['size_level'] ?? ''),
+            (string)($order['material'] ?? ''),
+            (int)($device['setup_minutes'] ?? 30)
+        );
+        $end = $expectedStartAt + $totalMinutes * 60;
+        Db::name('print_queue')->where('id', (int)$queue['id'])->update([
+            'expected_start_at' => $expectedStartAt,
+            'expected_end_at' => $end,
+            'adjusted_at' => time(),
+            'update_time' => time(),
+        ]);
+        Db::name('store_order')->where('id', $orderId)->update([
+            'expected_start_at' => $expectedStartAt,
+            'expected_deliver_at' => $end,
+        ]);
+        $this->recalcQueue((int)$queue['device_id'], (int)$queue['queue_no'], $end);
+        return true;
+    }
+
+    /**
+     * 更新打印进度备注
+     * @param int $orderId
+     * @param string $note
+     * @return bool
+     */
+    public function updateProgress(int $orderId, string $note): bool
+    {
+        Db::name('store_order')->where('id', $orderId)->update(['progress_note' => $note]);
+        return true;
+    }
+
+    /**
+     * 取消排单（退款/取消时调用），并重算后续队列
+     * @param int $orderId
+     * @return bool
+     */
+    public function cancelQueue(int $orderId): bool
+    {
+        $queue = Db::name('print_queue')->where('order_id', $orderId)->where('is_del', 0)->find();
+        if (!$queue) {
+            return false;
+        }
+        $deviceId = (int)$queue['device_id'];
+        Db::name('print_queue')->where('id', (int)$queue['id'])->update([
+            'status' => self::STATUS_CANCEL,
+            'update_time' => time(),
+        ]);
+        Db::name('store_order')->where('id', $orderId)->update(['queue_status' => self::STATUS_CANCEL]);
+        $this->recalcQueue($deviceId);
+        return true;
+    }
+
+    /**
+     * 自动收货：待取满 N 天自动完成
+     * @return int 处理订单数
+     */
+    public function autoReceipt(): int
+    {
+        $days = (int)sys_config('auto_receipt_days', 7);
+        if ($days <= 0) {
+            return 0;
+        }
+        $limit = time() - $days * 86400;
+        $ids = Db::name('store_order')
+            ->where('paid', 1)
+            ->where('status', 1)
+            ->where('is_del', 0)
+            ->where('pickup_at', '>', 0)
+            ->where('pickup_at', '<=', $limit)
+            ->column('id');
+        if (!$ids) {
+            return 0;
+        }
+        Db::name('store_order')->whereIn('id', $ids)->update(['status' => 2]);
+        return count($ids);
     }
 
     /**
