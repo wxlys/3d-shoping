@@ -6,6 +6,8 @@ yudao-alt/
 
 # 传输临时包
 crmeb-server-src.tgz
+crmeb-frontend.tgz
+*.tgz
 
 # 日志与运行时
 *.log
