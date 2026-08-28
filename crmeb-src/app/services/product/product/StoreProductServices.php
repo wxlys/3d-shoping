@@ -601,6 +601,7 @@ class StoreProductServices extends BaseServices
      */
     public function save(int $id, array $data)
     {
+        $data['product_type'] = in_array((int)($data['product_type'] ?? 0), [0, 1]) ? (int)$data['product_type'] : 0;
         if (count($data['cate_id']) < 1) throw new AdminException('请选择商品分类');
         if (!$data['store_name']) throw new AdminException('请输入商品名称');
         if (count($data['slider_image']) < 1) throw new AdminException('请选择商品轮播图');
@@ -1237,7 +1238,7 @@ class StoreProductServices extends BaseServices
         }
         [$page, $limit] = $this->getPageValue();
         $where['vip_user'] = $uid ? app()->make(UserServices::class)->value(['uid' => $uid], 'is_money_level') : 0;
-        $list = $this->dao->getSearchList($where, $page, $limit, ['id,store_name,cate_id,image,IFNULL(sales, 0) + IFNULL(ficti, 0) as sales,price,stock,activity,ot_price,spec_type,recommend_image,unit_name,is_vip,vip_price,is_virtual,presale,custom_form,virtual_type,min_qty,label_list']);
+        $list = $this->dao->getSearchList($where, $page, $limit, ['id,store_name,cate_id,image,IFNULL(sales, 0) + IFNULL(ficti, 0) as sales,price,stock,activity,ot_price,spec_type,recommend_image,unit_name,is_vip,vip_price,is_virtual,presale,custom_form,virtual_type,min_qty,label_list,product_type']);
         /** @var MemberCardServices $memberCardService */
         $memberCardService = app()->make(MemberCardServices::class);
         $vipStatus = $memberCardService->isOpenMemberCard('vip_price');

@@ -222,6 +222,7 @@ class StoreProduct extends AuthController
     {
         $data = $this->request->postMore([
             ['virtual_type', 0],// 商品类型
+            ['product_type', 0],// 商品类型 0成品 1定制打印
             ['cate_id', []],//分类id
             ['store_name', ''],//商品名称
             ['keyword', ''],//关键字
