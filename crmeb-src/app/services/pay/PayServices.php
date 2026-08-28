@@ -43,6 +43,9 @@ class PayServices
     //银行转账
     const BANK = 'bank';
 
+    //模拟支付（测试环境）
+    const MOCK_PAY = 'mock';
+
     //支付方式
     const PAY_TYPE = [
         PayServices::WEIXIN_PAY => '微信支付',
@@ -52,6 +55,7 @@ class PayServices
         PayServices::FRIEND => '好友代付',
         PayServices::ALLIN_PAY => '通联支付',
         PayServices::BANK => '银行转账',
+        PayServices::MOCK_PAY => '模拟支付',
     ];
 
     /**

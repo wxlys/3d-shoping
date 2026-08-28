@@ -305,6 +305,20 @@ class StoreOrderController
                     return app('json')->status('success', '支付失败');
                 }
             default:
+                // 模拟支付：开启后跳过真实支付渠道，直接标记支付成功（测试环境使用）
+                if ((int)sys_config('pay_mock_enabled', 0) === 1) {
+                    /** @var StoreOrderSuccessServices $success */
+                    $success = app()->make(StoreOrderSuccessServices::class);
+                    $mockOrder = $order->toArray();
+                    $mockOrder['pay_type'] = PayServices::MOCK_PAY;
+                    $payRes = $success->paySuccess($mockOrder, PayServices::MOCK_PAY, [
+                        'trade_no' => 'MOCK' . date('YmdHis') . mt_rand(1000, 9999)
+                    ]);
+                    if ($payRes) {
+                        return app('json')->status('success', '支付成功', ['order_id' => $orderInfo['order_id'], 'key' => $orderInfo['unique']]);
+                    }
+                    return app('json')->status('pay_error', '支付失败');
+                }
                 $payInfo = $payServices->beforePay($order->toArray(), $paytype, ['quitUrl' => $quitUrl]);
                 return app('json')->status($payInfo['status'], $payInfo['payInfo']);
         }
