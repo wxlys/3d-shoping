@@ -21,6 +21,7 @@ use app\services\other\PosterServices;
 use app\services\other\QrcodeServices;
 use app\services\other\UploadService;
 use app\services\pay\OrderPayServices;
+use think\facade\Db;
 use app\services\pay\PayServices;
 use app\services\product\product\StoreProductLogServices;
 use app\services\serve\ServeServices;
@@ -407,6 +408,26 @@ class StoreOrderServices extends BaseServices
         $order['_status'] = $status;
         $order['_pay_time'] = isset($order['pay_time']) && $order['pay_time'] != null ? date('Y-m-d H:i:s', $order['pay_time']) : '';
         $order['_add_time'] = isset($order['add_time']) ? (strstr((string)$order['add_time'], '-') === false ? date('Y-m-d H:i:s', $order['add_time']) : $order['add_time']) : '';
+
+        // 3D打印：排单信息
+        $order['is_print'] = (int)($order['is_print'] ?? 0);
+        $order['queue_status'] = (int)($order['queue_status'] ?? 0);
+        $order['expected_start_at'] = (int)($order['expected_start_at'] ?? 0);
+        $order['expected_deliver_at'] = (int)($order['expected_deliver_at'] ?? 0);
+        $order['progress_note'] = (string)($order['progress_note'] ?? '');
+        $order['queue_position'] = 0;
+        $order['pickup_code'] = ($order['status'] == 1 && !empty($order['verify_code'])) ? $order['verify_code'] : '';
+        if ($order['is_print'] == 1 && in_array($order['queue_status'], [1, 2])) {
+            $printQueue = Db::name('print_queue')->where('order_id', (int)$order['id'])->where('is_del', 0)->find();
+            if ($printQueue) {
+                $order['queue_position'] = (int)Db::name('print_queue')
+                    ->where('device_id', (int)$printQueue['device_id'])
+                    ->where('status', 1)
+                    ->where('is_del', 0)
+                    ->where('queue_no', '<', (int)$printQueue['queue_no'])
+                    ->count() + 1;
+            }
+        }
 
         //系统预设取消订单时间段
         $keyValue = ['order_cancel_time', 'order_activity_time', 'order_bargain_time', 'order_seckill_time', 'order_pink_time'];

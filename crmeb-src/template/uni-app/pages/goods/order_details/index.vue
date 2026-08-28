@@ -14,6 +14,29 @@
 					</view>
 				</view>
 			</view>
+			<!-- 3D打印：排单/取件信息 -->
+			<view class="print-info" v-if="orderInfo.is_print == 1 || orderInfo.pickup_code">
+				<view v-if="orderInfo.is_print == 1 && orderInfo.queue_position > 0" class="print-row">
+					<text class="print-label">{{ $t(`当前排位`) }}</text>
+					<text>{{ orderInfo.queue_position }}（前方 {{ orderInfo.queue_position - 1 }} 单）</text>
+				</view>
+				<view v-if="orderInfo.is_print == 1 && orderInfo.expected_start_at" class="print-row">
+					<text class="print-label">{{ $t(`预计开始`) }}</text>
+					<text>{{ fmtTime(orderInfo.expected_start_at) }}</text>
+				</view>
+				<view v-if="orderInfo.is_print == 1 && orderInfo.expected_deliver_at" class="print-row">
+					<text class="print-label">{{ $t(`预计交付`) }}</text>
+					<text>{{ fmtTime(orderInfo.expected_deliver_at) }}</text>
+				</view>
+				<view v-if="orderInfo.is_print == 1 && orderInfo.progress_note" class="print-row">
+					<text class="print-label">{{ $t(`进度备注`) }}</text>
+					<text>{{ orderInfo.progress_note }}</text>
+				</view>
+				<view v-if="orderInfo.pickup_code" class="print-row">
+					<text class="print-label">{{ $t(`取件码`) }}</text>
+					<text class="pickup-code">{{ orderInfo.pickup_code }}</text>
+				</view>
+			</view>
 			<view class="refund-msg" v-if="[4, 5].includes(orderInfo.refund_type)">
 				<view v-if="orderInfo._status.refund_name != ''">
 					<view class="refund-msg-user">
@@ -795,6 +818,12 @@ export default {
 	},
 	// #endif
 	methods: {
+		fmtTime(ts) {
+			if (!ts) return "";
+			const d = new Date(ts * 1000);
+			const p = (n) => (n < 10 ? "0" + n : "" + n);
+			return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+		},
 		// #ifdef H5
 		// 微信分享；
 		setOpenShare: function () {
