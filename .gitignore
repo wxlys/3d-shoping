@@ -17,3 +17,8 @@ crmeb-src/public/uploads/
 # IDE
 .idea/
 .vscode/
+
+# 前端构建产物与工具
+node_modules/
+dist/
+tools/
