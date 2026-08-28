@@ -25,6 +25,15 @@
     </el-col>
 
     <el-col :span="24">
+      <el-form-item label="业务类型：" prop="product_type">
+        <el-radio-group v-model="formValidate.product_type">
+          <el-radio :label="0">成品</el-radio>
+          <el-radio :label="1">定制打印</el-radio>
+        </el-radio-group>
+      </el-form-item>
+    </el-col>
+
+    <el-col :span="24">
       <el-form-item label="商品名称：" prop="store_name">
         <el-input
           class="content_width"

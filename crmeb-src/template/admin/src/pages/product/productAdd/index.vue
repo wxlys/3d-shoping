@@ -524,6 +524,7 @@ export default {
         recommend_list: [],
         params_list: [], //商品参数
         virtual_type: 0,
+        product_type: 0, //业务类型 0成品 1定制打印
         // is_sub: 0,
         id: 0,
         spec_type: 0,

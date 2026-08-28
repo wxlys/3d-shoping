@@ -133,7 +133,7 @@
           <view
             class="bnt acea-row"
             :class="!isCartButtonVisible ? 'virbnt' : ''"
-            v-if="attr.productSelect.stock <= 0"
+            v-if="attr.productSelect.stock <= 0 && Number(productType) !== 1"
           >
             <form
               v-if="isCartButtonVisible"
@@ -159,7 +159,7 @@
               </button>
             </form>
           </view>
-          <view class="bnt acea-row" v-else>
+          <view class="bnt acea-row" v-else-if="Number(productType) !== 1">
             <form
               v-if="isCartButtonVisible"
               @submit="joinCart"
@@ -185,6 +185,13 @@
                 :style="buyBtnStyle"
               >
                 {{ $t(`立即购买`) }}
+              </button>
+            </form>
+          </view>
+          <view class="bnt acea-row" v-else>
+            <form @submit="goCustom" class="buy bnts">
+              <button class="buy bnts" form-type="submit" :style="buyBtnStyle">
+                {{ $t(`定制询价`) }}
               </button>
             </form>
           </view>
@@ -254,6 +261,10 @@ export default {
     noGoods: {
       type: Boolean,
       default: false,
+    },
+    productType: {
+      type: [Number, String],
+      default: 0,
     },
     attr: {
       type: Object,
@@ -419,6 +430,9 @@ export default {
     },
     goBuy() {
       this.$emit("goBuy");
+    },
+    goCustom() {
+      uni.showToast({ title: this.$t(`定制询价流程开发中`), icon: "none" });
     },
   },
 };
