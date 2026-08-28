@@ -77,6 +77,18 @@ class StoreOrderSuccessServices extends BaseServices
         $orderInfoServices = app()->make(StoreOrderCartInfoServices::class);
         $orderInfo['storeName'] = $orderInfoServices->getCarIdByProductTitle((int)$orderInfo['id']);
         $res1 = $this->dao->update($orderInfo['id'], $updata);
+        // 3D打印改造：支付成功后定制订单进入排队，成品/秒杀直接待取并生成取件码
+        if ($res1) {
+            $printQueueServices = app()->make(\app\services\printqueue\PrintQueueServices::class);
+            if (($orderInfo['is_print'] ?? 0) == 1) {
+                $printQueueServices->enqueue($orderInfo);
+            } else {
+                $this->dao->update($orderInfo['id'], [
+                    'status' => 1,
+                    'verify_code' => $printQueueServices->generateVerifyCode()
+                ]);
+            }
+        }
         $resPink = true;
         if ($orderInfo['combination_id'] && $res1 && !$orderInfo['refund_status']) {
             /** @var StorePinkServices $pinkServices */
