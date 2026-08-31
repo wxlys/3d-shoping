@@ -237,6 +237,18 @@ Route::group(function () {
     })->option(['mark' => 'order', 'mark_name' => '订单']);
 
     Route::group(function () {
+        //3D打印模型文件与询价
+        Route::post('print/file/upload', 'v1.print3d.Inquiry/upload')->name('printFileUpload')->option(['real_name' => '上传打印模型']);
+        Route::get('print/file/list', 'v1.print3d.Inquiry/files')->name('printFileList')->option(['real_name' => '打印模型列表']);
+        Route::get('print/file/download/:id', 'v1.print3d.Inquiry/download')->name('printFileDownload')->option(['real_name' => '下载打印模型']);
+        Route::post('print/inquiry/create', 'v1.print3d.Inquiry/create')->name('printInquiryCreate')->option(['real_name' => '提交打印询价']);
+        Route::get('print/inquiry/list', 'v1.print3d.Inquiry/lst')->name('printInquiryList')->option(['real_name' => '我的打印询价']);
+        Route::get('print/inquiry/detail/:id', 'v1.print3d.Inquiry/detail')->name('printInquiryDetail')->option(['real_name' => '打印询价详情']);
+        Route::post('print/inquiry/cancel/:id', 'v1.print3d.Inquiry/cancel')->name('printInquiryCancel')->option(['real_name' => '取消打印询价']);
+        Route::post('print/inquiry/confirm/:id', 'v1.print3d.Inquiry/confirm')->name('printInquiryConfirm')->option(['real_name' => '确认打印报价']);
+    })->option(['mark' => 'print', 'mark_name' => '3D打印询价']);
+
+    Route::group(function () {
         //活动---砍价
         Route::get('bargain/detail/:id', 'v1.activity.StoreBargainController/detail')->name('bargainDetail')->option(['real_name' => '砍价商品详情']);//砍价商品详情
         Route::post('bargain/start', 'v1.activity.StoreBargainController/start')->name('bargainStart')->option(['real_name' => '砍价开启']);//砍价开启

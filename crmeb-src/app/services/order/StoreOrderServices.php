@@ -417,6 +417,45 @@ class StoreOrderServices extends BaseServices
         $order['progress_note'] = (string)($order['progress_note'] ?? '');
         $order['queue_position'] = 0;
         $order['pickup_code'] = ($order['status'] == 1 && !empty($order['verify_code'])) ? $order['verify_code'] : '';
+        // 定制打印订单使用独立的排单状态，避免支付后仍显示成普通商品的“待核销”。
+        if ($order['is_print'] == 1 && !empty($order['paid'])) {
+            if ($order['queue_status'] == 1) {
+                $order['_status'] = [
+                    '_type' => 1,
+                    '_title' => '排队中',
+                    '_msg' => $order['expected_start_at'] ? '预计开始：' . date('m月d日 H:i', $order['expected_start_at']) : '订单已进入打印队列，请耐心等待',
+                    '_class' => 'state-nfh',
+                ];
+            } elseif ($order['queue_status'] == 2) {
+                $order['_status'] = [
+                    '_type' => 1,
+                    '_title' => '制作中',
+                    '_msg' => '模型正在制作中，完成后会通知您取件',
+                    '_class' => 'state-nfh',
+                ];
+            } elseif ($order['queue_status'] == 3) {
+                $order['_status'] = [
+                    '_type' => 2,
+                    '_title' => '待取件',
+                    '_msg' => '打印已完成，请凭取件码到店取件',
+                    '_class' => 'state-ysh',
+                ];
+            } elseif ($order['queue_status'] == 4) {
+                $order['_status'] = [
+                    '_type' => 4,
+                    '_title' => '已取消',
+                    '_msg' => '打印订单已取消',
+                    '_class' => 'nobuy',
+                ];
+            }
+        }
+        // 状态文案覆盖后仍保留订单详情依赖的支付方式和配送方式字段。
+        if (isset($order['pay_type'])) {
+            $order['_status']['_payType'] = $order['_status']['_type'] == 0 ? '' : (PayServices::PAY_TYPE[$order['pay_type']] ?? '其他方式');
+        }
+        if (isset($order['delivery_type'])) {
+            $order['_status']['_deliveryType'] = $this->deliveryType[$order['delivery_type']] ?? '其他方式';
+        }
         if ($order['is_print'] == 1 && in_array($order['queue_status'], [1, 2])) {
             $printQueue = Db::name('print_queue')->where('order_id', (int)$order['id'])->where('is_del', 0)->find();
             if ($printQueue) {

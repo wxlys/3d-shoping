@@ -34,8 +34,29 @@ import routesList from './module/routesList';
 import tagsViewRoutes from './module/tagsViewRoutes';
 import userInfos from './module/userInfos';
 import keepAliveNames from './module/keepAliveNames';
+import { MENU_CACHE_VERSION, MENU_CACHE_VERSION_KEY } from './menuCache';
 
 Vue.use(Vuex);
+
+function restoreState(key, storage) {
+  if (storage.getItem(MENU_CACHE_VERSION_KEY) !== MENU_CACHE_VERSION) {
+    storage.removeItem(key);
+    storage.removeItem('menuList');
+    try {
+      storage.setItem(MENU_CACHE_VERSION_KEY, MENU_CACHE_VERSION);
+    } catch {}
+    return {};
+  }
+
+  const rawState = storage.getItem(key);
+  if (!rawState) return {};
+
+  try {
+    return JSON.parse(rawState) || {};
+  } catch {
+    return {};
+  }
+}
 // 持久化储存
 // const vuexLocal = new VuexPersistence({
 //     storage: window.localStorage,
@@ -73,6 +94,7 @@ export default new Vuex.Store({
         keepAliveNames: state.keepAliveNames,
       }),
       storage: window.localStorage,
+      restoreState,
     }).plugin,
   ],
   modules: {

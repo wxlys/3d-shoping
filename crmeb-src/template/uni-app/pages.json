@@ -392,6 +392,20 @@
 				}
 			]
 		}, {
+			"root": "pages/print",
+			"name": "print",
+			"pages": [{
+					"path": "inquiry/index",
+					"style": {
+						"navigationBarTitleText": "定制询价"
+					}
+				}, {
+					"path": "inquiry_list/index",
+					"style": {
+						"navigationBarTitleText": "我的询价"
+					}
+				}]
+		}, {
 			"root": "pages/users",
 			"name": "users",
 			"pages": [{

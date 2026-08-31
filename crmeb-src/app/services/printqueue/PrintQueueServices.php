@@ -27,6 +27,11 @@ class PrintQueueServices
      */
     public function enqueue(array $orderInfo): bool
     {
+        // 支付回调可能重试，已有排单时直接视为入队成功，避免唯一索引报重复错误。
+        $existing = Db::name('print_queue')->where('order_id', (int)$orderInfo['id'])->where('is_del', 0)->find();
+        if ($existing) {
+            return true;
+        }
         $deviceId = (int)Db::name('print_device')->where('status', 1)->where('is_del', 0)->value('id');
         if (!$deviceId) {
             $deviceId = 1;
@@ -193,10 +198,14 @@ class PrintQueueServices
      * 管理员调整排期（仅排队中订单），并重算后续队列
      * @param int $orderId
      * @param int $expectedStartAt
+     * @param int $adjustedBy
      * @return bool
      */
-    public function adjustSchedule(int $orderId, int $expectedStartAt): bool
+    public function adjustSchedule(int $orderId, int $expectedStartAt, int $adjustedBy = 0): bool
     {
+        if ($expectedStartAt <= time()) {
+            return false;
+        }
         $queue = Db::name('print_queue')->where('order_id', $orderId)->where('is_del', 0)->find();
         if (!$queue || (int)$queue['status'] !== self::STATUS_WAIT) {
             return false;
@@ -212,6 +221,7 @@ class PrintQueueServices
         Db::name('print_queue')->where('id', (int)$queue['id'])->update([
             'expected_start_at' => $expectedStartAt,
             'expected_end_at' => $end,
+            'adjusted_by' => $adjustedBy,
             'adjusted_at' => time(),
             'update_time' => time(),
         ]);

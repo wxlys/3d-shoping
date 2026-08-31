@@ -151,7 +151,7 @@ class StoreOrder extends AuthController
             ['expected_start_at', 0],
         ], true);
         if (!$orderId || !$expectedStartAt) return app('json')->fail('参数错误');
-        $res = app()->make(\app\services\printqueue\PrintQueueServices::class)->adjustSchedule((int)$orderId, (int)$expectedStartAt);
+        $res = app()->make(\app\services\printqueue\PrintQueueServices::class)->adjustSchedule((int)$orderId, (int)$expectedStartAt, (int)$this->adminId);
         return $res ? app('json')->success('排期已调整') : app('json')->fail('订单状态不允许该操作');
     }
 

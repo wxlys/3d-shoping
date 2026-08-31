@@ -152,6 +152,35 @@ Route::group('order', function () {
 ])->option(['mark' => 'order', 'mark_name' => '订单管理']);
 
 /**
+ * 3D打印管理相关路由
+ */
+Route::group('print', function () {
+    //排单列表
+    Route::get('queue/list', 'v1.print3d.PrintQueue/lst')->option(['real_name' => '打印排单列表']);
+    //排单开始打印
+    Route::post('queue/start', 'v1.print3d.PrintQueue/start')->option(['real_name' => '排单开始打印']);
+    //排单完成打印
+    Route::post('queue/complete', 'v1.print3d.PrintQueue/complete')->option(['real_name' => '排单完成打印']);
+    //调整排期
+    Route::post('queue/adjust', 'v1.print3d.PrintQueue/adjust')->option(['real_name' => '排单调整排期']);
+    //更新进度备注
+    Route::post('queue/progress', 'v1.print3d.PrintQueue/progress')->option(['real_name' => '排单更新进度']);
+    //询价列表
+    Route::get('inquiry/list', 'v1.print3d.Inquiry/lst')->option(['real_name' => '打印询价列表']);
+    //询价详情
+    Route::get('inquiry/info/:id', 'v1.print3d.Inquiry/info')->option(['real_name' => '打印询价详情']);
+    //保存报价
+    Route::post('inquiry/quote/:id', 'v1.print3d.Inquiry/quote')->option(['real_name' => '打印询价报价']);
+    //作废报价
+    Route::post('inquiry/expire/:id', 'v1.print3d.Inquiry/expire')->option(['real_name' => '打印询价作废']);
+})->middleware([
+    \app\http\middleware\AllowOriginMiddleware::class,
+    \app\adminapi\middleware\AdminAuthTokenMiddleware::class,
+    \app\adminapi\middleware\AdminCheckRoleMiddleware::class,
+    \app\adminapi\middleware\AdminLogMiddleware::class
+])->option(['mark' => 'print', 'mark_name' => '3D打印管理']);
+
+/**
  * 售后 相关路由
  */
 Route::group('refund', function () {

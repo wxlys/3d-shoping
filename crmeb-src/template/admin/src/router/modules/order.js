@@ -59,5 +59,23 @@ export default {
       },
       component: () => import('@/pages/order/invoice/index'),
     },
+    {
+      path: 'print-queue',
+      name: `${pre}printQueue`,
+      meta: {
+        auth: ['admin-order-print-queue-index'],
+        title: '排单管理',
+      },
+      component: () => import('@/pages/order/printQueue/index'),
+    },
+    {
+      path: 'inquiry',
+      name: `${pre}inquiry`,
+      meta: {
+        auth: ['admin-order-print-inquiry-index'],
+        title: '询价单管理',
+      },
+      component: () => import('@/pages/order/inquiry/index'),
+    },
   ],
 };

@@ -432,7 +432,10 @@ export default {
       this.$emit("goBuy");
     },
     goCustom() {
-      uni.showToast({ title: this.$t(`定制询价流程开发中`), icon: "none" });
+      const productId = this.storeInfo && this.storeInfo.id ? `?product_id=${this.storeInfo.id}` : "";
+      uni.navigateTo({
+        url: `/pages/print/inquiry/index${productId}`,
+      });
     },
   },
 };

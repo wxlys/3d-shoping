@@ -148,7 +148,11 @@ class Local extends BaseUpload
         $disk = 'public';
         $path = $this->path;
         $rule = null;
-        if (in_array($fileHandle->getOriginalMime(), ['application/x-x509-ca-cert', 'application/octet-stream'])) {
+        // STL/OBJ/3MF/STP/STEP 文件经常被浏览器标记为 octet-stream，仍应存入公开模型目录；
+        // PEM/证书等真正的二进制敏感文件继续使用 pem 磁盘。
+        $originalExt = strtolower(pathinfo($fileHandle->getOriginalName(), PATHINFO_EXTENSION));
+        $isPrintModel = in_array($originalExt, ['stl', 'obj', '3mf', 'stp', 'step'], true);
+        if (!$isPrintModel && in_array($fileHandle->getOriginalMime(), ['application/x-x509-ca-cert', 'application/octet-stream'])) {
             $disk = 'pem';
             $path = '';
             $rule = function () {

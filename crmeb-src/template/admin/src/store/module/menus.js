@@ -12,8 +12,13 @@
  * 布局菜单配置
  * */
 import { menusApi } from '@/api/account';
+import { MENU_CACHE_VERSION, MENU_CACHE_VERSION_KEY } from '../menuCache';
 function getMenusName() {
   let storage = window.localStorage;
+  if (storage.getItem(MENU_CACHE_VERSION_KEY) !== MENU_CACHE_VERSION) {
+    storage.removeItem('menuList');
+    return [];
+  }
   let menuList = JSON.parse(storage.getItem('menuList'));
   if (typeof menuList !== 'object' || menuList === null) {
     menuList = [];
