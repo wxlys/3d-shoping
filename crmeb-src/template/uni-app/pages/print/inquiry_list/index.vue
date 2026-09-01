@@ -5,7 +5,10 @@
         <view class="title">我的询价</view>
         <view class="subtitle">报价确认后将生成待支付订单</view>
       </view>
-      <view class="new-btn" @click="goCreate">新建询价</view>
+      <view class="top-actions">
+        <view class="new-btn" @click="goFiles">我的文件</view>
+        <view class="new-btn" @click="goCreate">新建询价</view>
+      </view>
     </view>
 
     <view v-if="list.length" class="inquiry-list">
@@ -23,7 +26,7 @@
         <view v-if="item.status === 3 && item.order.order_id" class="order-no">订单号：{{ item.order.order_id }}</view>
         <view class="actions">
           <view class="action ghost" @click="openDetail(item)">查看详情</view>
-          <view v-if="item.status === 1" class="action ghost" @click="cancel(item)">取消询价</view>
+          <view v-if="item.status === 1 || item.status === 2" class="action ghost" @click="cancel(item)">取消询价</view>
           <view v-if="item.status === 2" class="action primary" @click="confirm(item)">确认报价并支付</view>
           <view v-if="item.status === 3 && item.order.order_id" class="action primary" @click="goOrder(item)">查看订单</view>
         </view>
@@ -65,6 +68,9 @@ export default {
     },
     goCreate() {
       uni.navigateTo({ url: '/pages/print/inquiry/index' });
+    },
+    goFiles() {
+      uni.navigateTo({ url: '/pages/print/files/index' });
     },
     openDetail(item) {
       getPrintInquiryDetail(item.id)
@@ -124,6 +130,7 @@ export default {
 .title { font-size: 40rpx; font-weight: 600; }
 .subtitle { margin-top: 10rpx; font-size: 23rpx; opacity: .9; }
 .new-btn { padding: 14rpx 22rpx; border: 1rpx solid rgba(255,255,255,.75); border-radius: 36rpx; font-size: 24rpx; }
+.top-actions { display: flex; gap: 12rpx; }
 .inquiry-card { margin: 24rpx; padding: 28rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 4rpx 18rpx rgba(40, 72, 120, .04); }
 .card-head { display: flex; justify-content: space-between; align-items: center; }
 .inquiry-no { color: #666; font-size: 24rpx; }

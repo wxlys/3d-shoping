@@ -33,6 +33,22 @@
       @changeBarg="changeBarg"
       @goDetail="goDetail"
     ></PageDesign>
+    <view class="print-services">
+      <view class="print-service" @click="goPrintPage('/pages/print/inquiry_list/index')">
+        <view class="print-service-icon">询</view>
+        <view>
+          <view class="print-service-title">我的询价</view>
+          <view class="print-service-desc">查看报价与定制订单</view>
+        </view>
+      </view>
+      <view class="print-service" @click="goPrintPage('/pages/print/files/index')">
+        <view class="print-service-icon">模</view>
+        <view>
+          <view class="print-service-title">我的文件</view>
+          <view class="print-service-desc">管理并复用模型文件</view>
+        </view>
+      </view>
+    </view>
     <image :src="copyRightPic" alt="" class="support"></image>
     <editUserModal
       :isShow="editModal"
@@ -345,6 +361,13 @@ export default {
         toLogin();
       }
     },
+    goPrintPage(url) {
+      if (!this.isLogin) {
+        toLogin();
+        return;
+      }
+      uni.navigateTo({ url });
+    },
     objToArr(data) {
       if (!data || typeof data !== "object") return [];
       let obj = Object.keys(data).sort();
@@ -614,5 +637,34 @@ export default {
     margin: 54rpx auto;
     display: block;
   }
+  .print-services {
+    display: flex;
+    gap: 20rpx;
+    margin: 24rpx 30rpx 0;
+  }
+  .print-service {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 18rpx;
+    min-width: 0;
+    padding: 24rpx 20rpx;
+    border-radius: 16rpx;
+    background: #fff;
+    box-shadow: 0 4rpx 18rpx rgba(40, 72, 120, .06);
+  }
+  .print-service-icon {
+    flex: none;
+    width: 60rpx;
+    height: 60rpx;
+    border-radius: 18rpx;
+    color: #fff;
+    background: linear-gradient(135deg, #3875ea, #6d9cff);
+    text-align: center;
+    line-height: 60rpx;
+    font-size: 28rpx;
+  }
+  .print-service-title { color: #333; font-size: 27rpx; font-weight: 600; }
+  .print-service-desc { margin-top: 6rpx; color: #999; font-size: 20rpx; white-space: nowrap; }
 }
 </style>

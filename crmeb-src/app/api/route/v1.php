@@ -241,6 +241,7 @@ Route::group(function () {
         Route::post('print/file/upload', 'v1.print3d.Inquiry/upload')->name('printFileUpload')->option(['real_name' => '上传打印模型']);
         Route::get('print/file/list', 'v1.print3d.Inquiry/files')->name('printFileList')->option(['real_name' => '打印模型列表']);
         Route::get('print/file/download/:id', 'v1.print3d.Inquiry/download')->name('printFileDownload')->option(['real_name' => '下载打印模型']);
+        Route::post('print/file/delete/:id', 'v1.print3d.Inquiry/deleteFile')->name('printFileDelete')->option(['real_name' => '删除打印模型']);
         Route::post('print/inquiry/create', 'v1.print3d.Inquiry/create')->name('printInquiryCreate')->option(['real_name' => '提交打印询价']);
         Route::get('print/inquiry/list', 'v1.print3d.Inquiry/lst')->name('printInquiryList')->option(['real_name' => '我的打印询价']);
         Route::get('print/inquiry/detail/:id', 'v1.print3d.Inquiry/detail')->name('printInquiryDetail')->option(['real_name' => '打印询价详情']);

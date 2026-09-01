@@ -15,7 +15,7 @@ use think\facade\Db;
  * 定制打印询价服务
  *
  * 询价单的状态流转：待报价 -> 已报价 -> 已确认。
- * 报价超过有效期后会变为已过期，取消只允许发生在未报价阶段。
+ * 报价超过有效期后会变为已过期，待报价和已报价阶段均允许用户取消。
  */
 class PrintInquiryServices
 {
@@ -161,8 +161,66 @@ class PrintInquiryServices
         $list = $query->order('id desc')->page($page, $limit)->select()->toArray();
         foreach ($list as &$item) {
             $item = $this->formatFile($item);
+            $item['in_use'] = (int)($item['inquiry_id'] ?? 0) > 0 || (int)($item['order_id'] ?? 0) > 0;
         }
         return compact('count', 'list', 'page', 'limit');
+    }
+
+    /**
+     * 删除用户未被询价或订单引用的模型文件。
+     */
+    public function deleteUserFile(int $uid, int $id): bool
+    {
+        $file = Db::name('print_file')->where([
+            'id' => $id,
+            'uid' => $uid,
+            'is_del' => 0,
+        ])->find();
+        if (!$file) {
+            throw new ApiException('文件不存在');
+        }
+        if ((int)$file['inquiry_id'] > 0 || (int)$file['order_id'] > 0) {
+            throw new ApiException('该文件已被询价或订单使用，不能删除');
+        }
+        $this->deleteStoredFile((string)$file['stored_name']);
+        return false !== Db::name('print_file')->where('id', $id)->update([
+            'is_del' => 1,
+            'update_time' => time(),
+        ]);
+    }
+
+    /**
+     * 定时清理超过保留期且从未被业务引用的文件。
+     */
+    public function cleanupUnusedFiles(): int
+    {
+        $days = max(1, (int)sys_config('print_file_retain_days', 30));
+        $files = Db::name('print_file')->where([
+            'inquiry_id' => 0,
+            'order_id' => 0,
+            'is_del' => 0,
+        ])->where('add_time', '<=', time() - $days * 86400)->select()->toArray();
+        $count = 0;
+        foreach ($files as $file) {
+            $this->deleteStoredFile((string)$file['stored_name']);
+            $count += (int)(false !== Db::name('print_file')->where('id', (int)$file['id'])->update([
+                'is_del' => 1,
+                'update_time' => time(),
+            ]));
+        }
+        return $count;
+    }
+
+    protected function deleteStoredFile(string $storedName): void
+    {
+        if ($storedName === '') {
+            return;
+        }
+        try {
+            UploadService::init()->delete($storedName);
+        } catch (\Throwable $e) {
+            // 存储文件不存在时仍允许清理数据库记录，避免形成永久脏数据。
+        }
     }
 
     /**
@@ -289,9 +347,8 @@ class PrintInquiryServices
         $res = Db::name('inquiry')->where([
             'id' => $id,
             'uid' => $uid,
-            'status' => self::STATUS_PENDING,
             'is_del' => 0,
-        ])->update([
+        ])->whereIn('status', [self::STATUS_PENDING, self::STATUS_QUOTED])->update([
             'status' => self::STATUS_CANCEL,
             'update_time' => time(),
         ]);
@@ -585,7 +642,14 @@ class PrintInquiryServices
         if (!$res) {
             throw new ApiException('当前询价单不能报价');
         }
-        return $this->getAdminDetail($id);
+        $detail = $this->getAdminDetail($id);
+        app()->make(PrintNoticeServices::class)->send(
+            (int)$detail['user']['uid'],
+            '定制询价已报价',
+            '询价单' . $detail['inquiry_no'] . '已报价 ¥' . $quoteAmount . '，请在有效期内确认。',
+            ['inquiry_id' => $id]
+        );
+        return $detail;
     }
 
     /**
@@ -615,13 +679,27 @@ class PrintInquiryServices
      */
     public function expireQuoted(): int
     {
-        return (int)Db::name('inquiry')->where([
+        $query = Db::name('inquiry')->where([
             'status' => self::STATUS_QUOTED,
             'is_del' => 0,
-        ])->where('expire_at', '>', 0)->where('expire_at', '<=', time())->update([
+        ])->where('expire_at', '>', 0)->where('expire_at', '<=', time());
+        $expired = (clone $query)->field('id,uid,inquiry_no')->select()->toArray();
+        if (!$expired) {
+            return 0;
+        }
+        $count = (int)$query->update([
             'status' => self::STATUS_EXPIRED,
             'update_time' => time(),
         ]);
+        foreach ($expired as $item) {
+            app()->make(PrintNoticeServices::class)->send(
+                (int)$item['uid'],
+                '定制询价已过期',
+                '询价单' . $item['inquiry_no'] . '的报价已过期，如仍需制作请重新提交询价。',
+                ['inquiry_id' => (int)$item['id']]
+            );
+        }
+        return $count;
     }
 
     /**
@@ -725,6 +803,8 @@ class PrintInquiryServices
             'add_time' => (int)($file['add_time'] ?? 0),
             'add_time_text' => $this->formatTime($file['add_time'] ?? 0),
             'file_url' => $this->getFileUrl((string)($file['stored_name'] ?? '')),
+            'inquiry_id' => (int)($file['inquiry_id'] ?? 0),
+            'order_id' => (int)($file['order_id'] ?? 0),
         ];
     }
 

@@ -2686,7 +2686,17 @@ HTML;
         $orderData['refund_cartInfo'] = $orderData['cartInfo'];
         $orderData['refund_total_num'] = $orderData['total_num'];
         $orderData['refund_pay_price'] = $orderData['pay_price'];
-        $orderData['is_apply_refund'] = true;
+        // 3D打印改版：一期退款入口严格跟随 PRD。
+        // 定制订单仅允许“已支付且尚未开始打印（排队中）”申请；成品/秒杀仅待取状态允许申请。
+        if ((int)($orderData['is_print'] ?? 0) === 1) {
+            $orderData['is_apply_refund'] = (int)$orderData['paid'] === 1
+                && (int)($orderData['queue_status'] ?? 0) === 1
+                && (int)$orderData['refund_status'] === 0;
+        } else {
+            $orderData['is_apply_refund'] = (int)$orderData['paid'] === 1
+                && (int)$orderData['status'] === 1
+                && (int)$orderData['refund_status'] === 0;
+        }
         $orderData['help_info'] = [
             'pay_uid' => $orderData['pay_uid'],
             'pay_nickname' => '',
@@ -2733,7 +2743,8 @@ HTML;
 
             $orderData['order_shipping_open'] = true;
         }
-        $orderData['is_refund_available'] = $this->isRefundAvailable((int)$order['id']);
+        $orderData['is_refund_available'] = $orderData['is_apply_refund']
+            && $this->isRefundAvailable((int)$order['id']);
 
         $orderData['gift_key'] = $orderData['gift_code'] = '';
         if ($order['is_gift'] == 1) {

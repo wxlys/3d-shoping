@@ -21,6 +21,7 @@ use app\services\BaseServices;
 use app\services\activity\coupon\StoreCouponIssueUserServices;
 use app\services\activity\coupon\StoreCouponUserServices;
 use app\services\pay\PayServices;
+use app\services\printqueue\PrintQueueServices;
 use app\services\product\product\StoreProductServices;
 use app\services\shipping\ExpressServices;
 use app\services\statistic\CapitalFlowServices;
@@ -275,6 +276,10 @@ class StoreOrderRefundServices extends BaseServices
 
             return $splitOrderInfo;
         });
+        // 定制订单退款通过后移出打印队列，并立即重算后续订单排期。
+        if ((int)($order['is_print'] ?? 0) === 1) {
+            app()->make(PrintQueueServices::class)->cancelQueue((int)$order['id']);
+        }
         //处理开票
         app()->make(StoreOrderInvoiceServices::class)->update(['order_id' => $order['id']], ['is_refund' => 1]);
         //订单退款记录
@@ -962,6 +967,15 @@ class StoreOrderRefundServices extends BaseServices
         }
         if (!$order) {
             throw new ApiException('订单不存在');
+        }
+
+        // 3D打印改版：服务端强制执行退款状态约束，不能只依赖 H5 隐藏按钮。
+        if ((int)($order['is_print'] ?? 0) === 1) {
+            if ((int)$order['paid'] !== 1 || (int)($order['queue_status'] ?? 0) !== PrintQueueServices::STATUS_WAIT) {
+                throw new ApiException('定制打印订单仅在排队中且开始打印前可申请退款');
+            }
+        } elseif ((int)$order['paid'] !== 1 || (int)$order['status'] !== 1) {
+            throw new ApiException('成品或秒杀订单仅在待取状态可申请退款');
         }
 
         $is_now = $this->dao->getCount([

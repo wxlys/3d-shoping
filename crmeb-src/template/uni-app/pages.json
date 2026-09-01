@@ -404,6 +404,11 @@
 					"style": {
 						"navigationBarTitleText": "我的询价"
 					}
+				}, {
+					"path": "files/index",
+					"style": {
+						"navigationBarTitleText": "我的文件"
+					}
 				}]
 		}, {
 			"root": "pages/users",

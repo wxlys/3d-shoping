@@ -70,6 +70,7 @@ export default {
   data() {
     return {
       productId: 0,
+      requestedFileId: 0,
       uploading: false,
       submitting: false,
       files: [],
@@ -89,6 +90,7 @@ export default {
   },
   onLoad(options) {
     this.productId = Number(options.product_id || 0);
+    this.requestedFileId = Number(options.file_id || 0);
     this.loadFiles();
   },
   methods: {
@@ -96,6 +98,10 @@ export default {
       getPrintFileList({ page: 1, limit: 20 })
         .then((res) => {
           this.files = (res.data && res.data.list) || [];
+          if (this.requestedFileId) {
+            this.selectedFile = this.files.find((item) => item.id === this.requestedFileId && item.status === 2) || null;
+            if (!this.selectedFile) this.$util.Tips({ title: '该文件暂不可用于询价' });
+          }
         })
         .catch(() => {});
     },

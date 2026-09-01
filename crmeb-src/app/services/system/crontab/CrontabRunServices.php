@@ -17,6 +17,8 @@ use app\services\agent\AgentManageServices;
 use app\services\order\StoreOrderInvoiceServices;
 use app\services\order\StoreOrderServices;
 use app\services\order\StoreOrderTakeServices;
+use app\services\print3d\PrintInquiryServices;
+use app\services\printqueue\PrintQueueServices;
 use app\services\product\product\StoreProductServices;
 use app\services\system\attachment\SystemAttachmentServices;
 use app\services\user\UserSignServices;
@@ -46,6 +48,7 @@ class CrontabRunServices
         'clearPoster' => '清除昨日海报',
         'autoInvoice' => '自动开具发票以及退款自动冲红',
         'signRemind' => '未签到提醒',
+        'printMaintenance' => '3D打印业务维护',
         'customTimer' => '自定义定时任务',
     ];
 
@@ -251,6 +254,22 @@ class CrontabRunServices
             $this->crontabLog(' 执行未签到提醒');
         } catch (\Throwable $e) {
             $this->crontabLog('未签到提醒失败,失败原因:' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 3D打印业务维护：报价过期、待取自动完成、未引用模型清理。
+     */
+    public function printMaintenance()
+    {
+        try {
+            $inquiryServices = app()->make(PrintInquiryServices::class);
+            $expired = $inquiryServices->expireQuoted();
+            $received = app()->make(PrintQueueServices::class)->autoReceipt();
+            $cleaned = $inquiryServices->cleanupUnusedFiles();
+            $this->crontabLog(" 3D打印业务维护完成：过期{$expired}，自动收货{$received}，清理文件{$cleaned}");
+        } catch (\Throwable $e) {
+            $this->crontabLog('3D打印业务维护失败,失败原因:' . $e->getMessage());
         }
     }
 

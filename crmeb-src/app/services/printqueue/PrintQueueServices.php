@@ -5,6 +5,7 @@
 
 namespace app\services\printqueue;
 
+use app\services\print3d\PrintNoticeServices;
 use think\facade\Db;
 
 /**
@@ -51,6 +52,7 @@ class PrintQueueServices
         if ($res) {
             Db::name('store_order')->where('id', (int)$orderInfo['id'])->update(['queue_status' => 1]);
             $this->recalcQueue($deviceId);
+            $this->sendOrderNotice((int)$orderInfo['id'], '定制订单已进入排队', '你的定制打印订单已付款并进入打印队列，可在订单详情查看预计时间。');
         }
         return (bool)$res;
     }
@@ -153,12 +155,18 @@ class PrintQueueServices
         if (!$queue || (int)$queue['status'] !== self::STATUS_WAIT) {
             return false;
         }
+        $order = Db::name('store_order')->where('id', $orderId)->find();
+        if (!$order || (int)$order['paid'] !== 1 || (int)$order['is_print'] !== 1
+            || (int)$order['queue_status'] !== self::STATUS_WAIT || (int)$order['refund_status'] !== 0) {
+            return false;
+        }
         Db::name('print_queue')->where('id', (int)$queue['id'])->update([
             'status' => self::STATUS_PRINTING,
             'actual_start_at' => time(),
             'update_time' => time(),
         ]);
         Db::name('store_order')->where('id', $orderId)->update(['queue_status' => self::STATUS_PRINTING]);
+        $this->sendOrderNotice($orderId, '定制订单开始制作', '你的定制打印订单已开始制作，请留意后续进度。');
         return true;
     }
 
@@ -191,6 +199,7 @@ class PrintQueueServices
             'verify_code' => $verifyCode,
         ]);
         $this->recalcQueue((int)$queue['device_id']);
+        $this->sendOrderNotice($orderId, '定制订单待取件', '你的定制打印已完成，取件码：' . $verifyCode . '，请到店取件。');
         return true;
     }
 
@@ -230,6 +239,7 @@ class PrintQueueServices
             'expected_deliver_at' => $end,
         ]);
         $this->recalcQueue((int)$queue['device_id'], (int)$queue['queue_no'], $end);
+        $this->sendOrderNotice($orderId, '定制订单排期已调整', '你的定制打印预计开始时间已调整，请在订单详情查看最新排期。');
         return true;
     }
 
@@ -242,6 +252,7 @@ class PrintQueueServices
     public function updateProgress(int $orderId, string $note): bool
     {
         Db::name('store_order')->where('id', $orderId)->update(['progress_note' => $note]);
+        $this->sendOrderNotice($orderId, '定制订单进度更新', $note !== '' ? $note : '你的定制打印进度已更新。');
         return true;
     }
 
@@ -280,6 +291,7 @@ class PrintQueueServices
         $ids = Db::name('store_order')
             ->where('paid', 1)
             ->where('status', 1)
+            ->where('refund_status', 0)
             ->where('is_del', 0)
             ->where('pickup_at', '>', 0)
             ->where('pickup_at', '<=', $limit)
@@ -288,7 +300,24 @@ class PrintQueueServices
             return 0;
         }
         Db::name('store_order')->whereIn('id', $ids)->update(['status' => 2]);
+        foreach ($ids as $id) {
+            $this->sendOrderNotice((int)$id, '定制订单已完成', '订单待取已满规定时间，系统已自动确认完成。');
+        }
         return count($ids);
+    }
+
+    protected function sendOrderNotice(int $orderId, string $title, string $content): void
+    {
+        $order = Db::name('store_order')->where('id', $orderId)->field('uid,order_id')->find();
+        if (!$order) {
+            return;
+        }
+        app()->make(PrintNoticeServices::class)->send(
+            (int)$order['uid'],
+            $title,
+            $content . '（订单号：' . $order['order_id'] . '）',
+            ['order_id' => (string)$order['order_id']]
+        );
     }
 
     /**

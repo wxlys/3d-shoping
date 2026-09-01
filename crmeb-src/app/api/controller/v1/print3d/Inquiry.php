@@ -43,6 +43,12 @@ class Inquiry
         return $this->services->downloadFile($file);
     }
 
+    public function deleteFile(Request $request, $id)
+    {
+        $this->services->deleteUserFile($this->uid($request), (int)$id);
+        return app('json')->success('模型文件已删除');
+    }
+
     public function create(Request $request)
     {
         [$fileId, $sizeLevel, $material, $quantity] = $request->postMore([
