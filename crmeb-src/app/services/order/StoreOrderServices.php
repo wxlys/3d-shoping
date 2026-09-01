@@ -418,7 +418,9 @@ class StoreOrderServices extends BaseServices
         $order['queue_position'] = 0;
         $order['pickup_code'] = ($order['status'] == 1 && !empty($order['verify_code'])) ? $order['verify_code'] : '';
         // 定制打印订单使用独立的排单状态，避免支付后仍显示成普通商品的“待核销”。
-        if ($order['is_print'] == 1 && !empty($order['paid'])) {
+        // 退款状态优先于排单状态，避免退款完成后被“排单已取消”覆盖成退款中。
+        if ($order['is_print'] == 1 && !empty($order['paid'])
+            && !in_array((int)($order['refund_status'] ?? 0), [1, 2, 3, 4], true)) {
             if ($order['queue_status'] == 1) {
                 $order['_status'] = [
                     '_type' => 1,

@@ -21,6 +21,7 @@ use app\services\BaseServices;
 use app\services\activity\coupon\StoreCouponIssueUserServices;
 use app\services\activity\coupon\StoreCouponUserServices;
 use app\services\pay\PayServices;
+use app\services\print3d\PrintInquiryServices;
 use app\services\printqueue\PrintQueueServices;
 use app\services\product\product\StoreProductServices;
 use app\services\shipping\ExpressServices;
@@ -279,6 +280,7 @@ class StoreOrderRefundServices extends BaseServices
         // 定制订单退款通过后移出打印队列，并立即重算后续订单排期。
         if ((int)($order['is_print'] ?? 0) === 1) {
             app()->make(PrintQueueServices::class)->cancelQueue((int)$order['id']);
+            app()->make(PrintInquiryServices::class)->releaseFileBindingByOrder((int)$order['id']);
         }
         //处理开票
         app()->make(StoreOrderInvoiceServices::class)->update(['order_id' => $order['id']], ['is_refund' => 1]);

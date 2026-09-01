@@ -256,8 +256,13 @@ class PrintInquiryServices
         if ((int)$file['status'] !== self::FILE_PASS) {
             throw new ApiException('模型文件尚未通过校验');
         }
-        if ((int)$file['inquiry_id'] > 0) {
-            throw new ApiException('该模型文件已提交过询价，请重新上传文件');
+        if ((int)$file['inquiry_id'] > 0 || (int)($file['order_id'] ?? 0) > 0) {
+            // 已取消/已过期询价，或已退款/已取消订单，可以解除旧绑定后再次询价。
+            if (!$this->releaseFileBindingIfReusable($file)) {
+                throw new ApiException('该模型文件已提交过询价，请重新上传文件');
+            }
+            $file['inquiry_id'] = 0;
+            $file['order_id'] = 0;
         }
 
         $now = time();
@@ -287,6 +292,74 @@ class PrintInquiryServices
             'update_time' => $now,
         ]);
         return $this->getUserDetail($uid, $id);
+    }
+
+    /**
+     * 退款完成后释放模型文件与旧订单/询价的业务绑定，保留历史询价记录。
+     * @param int $orderId
+     * @return bool
+     */
+    public function releaseFileBindingByOrder(int $orderId): bool
+    {
+        if ($orderId <= 0) {
+            return false;
+        }
+        $data = [
+            'inquiry_id' => 0,
+            'order_id' => 0,
+            'update_time' => time(),
+        ];
+        $released = (int)Db::name('print_file')->where('order_id', $orderId)->update($data);
+        $inquiryIds = Db::name('inquiry')->where('order_id', $orderId)->column('id');
+        if ($inquiryIds) {
+            $released += (int)Db::name('print_file')->whereIn('inquiry_id', $inquiryIds)->update($data);
+        }
+        return $released > 0;
+    }
+
+    /**
+     * 对历史数据做兼容：只有终态询价或已退款/已取消订单才允许解除绑定。
+     */
+    protected function releaseFileBindingIfReusable(array $file): bool
+    {
+        $inquiryId = (int)($file['inquiry_id'] ?? 0);
+        $orderId = (int)($file['order_id'] ?? 0);
+        $inquiryTerminal = $inquiryId <= 0;
+        if ($inquiryId > 0) {
+            $inquiry = Db::name('inquiry')->where('id', $inquiryId)->field('id,status,order_id')->find();
+            if (!$inquiry) {
+                $inquiryTerminal = true;
+            } else {
+                $inquiryTerminal = in_array((int)$inquiry['status'], [self::STATUS_EXPIRED, self::STATUS_CANCEL], true);
+                if ($orderId <= 0) {
+                    $orderId = (int)($inquiry['order_id'] ?? 0);
+                }
+            }
+        }
+
+        $orderTerminal = $orderId <= 0;
+        if ($orderId > 0) {
+            $order = Db::name('store_order')->where('id', $orderId)->field('refund_status,refund_type,status,is_cancel')->find();
+            $orderTerminal = !$order || (int)($order['refund_status'] ?? 0) === 2
+                || (int)($order['refund_type'] ?? 0) === 6
+                || (int)($order['status'] ?? 0) === -2
+                || (int)($order['is_cancel'] ?? 0) === 1;
+        }
+
+        // 订单仍在退款申请或制作流程中时，不能提前复用同一文件。
+        if ($orderId > 0 && !$orderTerminal) {
+            return false;
+        }
+        if (!$inquiryTerminal && $orderId <= 0) {
+            return false;
+        }
+
+        $released = Db::name('print_file')->where('id', (int)$file['id'])->update([
+            'inquiry_id' => 0,
+            'order_id' => 0,
+            'update_time' => time(),
+        ]);
+        return false !== $released;
     }
 
     /**
@@ -337,24 +410,33 @@ class PrintInquiryServices
     }
 
     /**
-     * 用户取消待报价询价单。
+     * 用户取消尚未确认的询价单。
      * @param int $uid
      * @param int $id
      * @return bool
      */
     public function cancelInquiry(int $uid, int $id): bool
     {
-        $res = Db::name('inquiry')->where([
+        $inquiry = Db::name('inquiry')->where([
             'id' => $id,
             'uid' => $uid,
             'is_del' => 0,
-        ])->whereIn('status', [self::STATUS_PENDING, self::STATUS_QUOTED])->update([
+        ])->find();
+        if (!$inquiry || !in_array((int)$inquiry['status'], [self::STATUS_PENDING, self::STATUS_QUOTED], true)) {
+            throw new ApiException('当前询价单不能取消');
+        }
+        $res = Db::name('inquiry')->where('id', $id)->where('uid', $uid)->whereIn('status', [self::STATUS_PENDING, self::STATUS_QUOTED])->update([
             'status' => self::STATUS_CANCEL,
             'update_time' => time(),
         ]);
         if (!$res) {
             throw new ApiException('当前询价单不能取消');
         }
+        Db::name('print_file')->where('id', (int)$inquiry['file_id'])->where('inquiry_id', $id)->update([
+            'inquiry_id' => 0,
+            'order_id' => 0,
+            'update_time' => time(),
+        ]);
         return true;
     }
 

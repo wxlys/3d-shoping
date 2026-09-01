@@ -43,7 +43,7 @@
 							<text v-show="is_gift != 2" :class="{gray:!item.is_valid}">
 								{{$t(`￥`)}}{{item.productInfo.attrInfo.price}}
 							</text>
-							<view class="refund" v-if="item.refund_num && statusType !=-2">{{item.refund_num}}{{$t(`件退款中`)}}
+							<view class="refund" v-if="item.refund_num && refund_status != 2 && statusType !=-2">{{item.refund_num}}{{$t(`件退款中`)}}
 							</view>
 							<text class="valid" v-if="!item.is_valid && shipping_type === 0">{{$t(`不支持配送`)}}</text>
 							<text class="valid" v-if="!item.productInfo.store_mention && shipping_type === 1">{{$t(`不支持自提`)}}</text>
