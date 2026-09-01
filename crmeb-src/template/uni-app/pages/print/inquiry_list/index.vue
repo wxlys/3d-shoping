@@ -22,6 +22,7 @@
         <view v-if="item.status === 2" class="quote-row">
           <text>报价</text><text class="price">¥ {{ item.quote_amount }}</text>
         </view>
+        <view v-if="(item.status === 2 || item.status === 3) && item.quote_expected_deliver_at_text" class="expire">预计交付 {{ item.quote_expected_deliver_at_text }}</view>
         <view v-if="item.status === 2 && item.expire_at_text" class="expire">有效期至 {{ item.expire_at_text }}</view>
         <view v-if="item.status === 3 && item.order.order_id" class="order-no">订单号：{{ item.order.order_id }}</view>
         <view class="actions">
@@ -78,7 +79,7 @@ export default {
           const data = res.data || {};
           uni.showModal({
             title: data.inquiry_no || '询价详情',
-            content: `状态：${data.status_name}\n规格：${data.size_level} / ${data.material} × ${data.quantity}\n报价：${data.quote_amount > 0 ? `¥ ${data.quote_amount}` : '待报价'}`,
+            content: `状态：${data.status_name}\n规格：${data.size_level} / ${data.material} × ${data.quantity}\n报价：${data.quote_amount > 0 ? `¥ ${data.quote_amount}` : '待报价'}${data.quote_expected_deliver_at_text ? `\n预计交付：${data.quote_expected_deliver_at_text}` : ''}`,
             showCancel: false,
           });
         })

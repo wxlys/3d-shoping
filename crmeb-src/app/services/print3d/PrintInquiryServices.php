@@ -697,14 +697,23 @@ class PrintInquiryServices
      * 后台报价。
      * @param int $id
      * @param string|float $amount
+     * @param int|string $expectedDeliverAt
      * @param int $adminId
      * @return array
      */
-    public function quote(int $id, $amount, int $adminId = 0): array
+    public function quote(int $id, $amount, $expectedDeliverAt = 0, int $adminId = 0): array
     {
         $amount = trim((string)$amount);
         if (!preg_match('/^\\d{1,10}(?:\\.\\d{1,2})?$/', $amount) || (float)$amount <= 0) {
             throw new ApiException('请输入大于0的有效报价');
+        }
+        $expectedDeliverAt = (int)$expectedDeliverAt;
+        // Element UI 的 timestamp 是毫秒，接口和数据库统一保存秒级时间戳。
+        if ($expectedDeliverAt > 20000000000) {
+            $expectedDeliverAt = (int)floor($expectedDeliverAt / 1000);
+        }
+        if ($expectedDeliverAt <= time()) {
+            throw new ApiException('预计交付时间必须晚于当前时间');
         }
         $quoteAmount = number_format((float)$amount, 2, '.', '');
         $now = time();
@@ -718,6 +727,7 @@ class PrintInquiryServices
             'quote_amount' => $quoteAmount,
             'quote_by' => $adminId,
             'quote_at' => $now,
+            'quote_expected_deliver_at' => $expectedDeliverAt,
             'expire_at' => $now + $hours * 3600,
             'update_time' => $now,
         ]);
@@ -728,7 +738,7 @@ class PrintInquiryServices
         app()->make(PrintNoticeServices::class)->send(
             (int)$detail['user']['uid'],
             '定制询价已报价',
-            '询价单' . $detail['inquiry_no'] . '已报价 ¥' . $quoteAmount . '，请在有效期内确认。',
+            '询价单' . $detail['inquiry_no'] . '已报价 ¥' . $quoteAmount . '，预计交付：' . $detail['quote_expected_deliver_at_text'] . '，请在有效期内确认。',
             ['inquiry_id' => $id]
         );
         return $detail;
@@ -844,6 +854,8 @@ class PrintInquiryServices
             'quote_by' => (int)($inquiry['quote_by'] ?? 0),
             'quote_at' => (int)($inquiry['quote_at'] ?? 0),
             'quote_at_text' => $this->formatTime($inquiry['quote_at'] ?? 0),
+            'quote_expected_deliver_at' => (int)($inquiry['quote_expected_deliver_at'] ?? 0),
+            'quote_expected_deliver_at_text' => $this->formatTime($inquiry['quote_expected_deliver_at'] ?? 0),
             'expire_at' => (int)($inquiry['expire_at'] ?? 0),
             'expire_at_text' => $this->formatTime($inquiry['expire_at'] ?? 0),
             'order_id' => (int)($inquiry['order_id'] ?? 0),

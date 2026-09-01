@@ -41,10 +41,11 @@ class Inquiry extends AuthController
 
     public function quote($id)
     {
-        [$amount] = $this->request->postMore([
+        [$amount, $expectedDeliverAt] = $this->request->postMore([
             ['quote_amount', ''],
+            ['quote_expected_deliver_at', 0],
         ], true);
-        return app('json')->success('报价已保存', $this->services->quote((int)$id, $amount, (int)$this->adminId));
+        return app('json')->success('报价已保存', $this->services->quote((int)$id, $amount, $expectedDeliverAt, (int)$this->adminId));
     }
 
     public function expire($id)

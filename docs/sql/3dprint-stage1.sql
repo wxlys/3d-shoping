@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS `eb_inquiry` (
   `quote_amount` decimal(12,2) NOT NULL DEFAULT '0.00' COMMENT '报价金额',
   `quote_by` int(11) NOT NULL DEFAULT '0' COMMENT '报价管理员ID',
   `quote_at` int(11) NOT NULL DEFAULT '0' COMMENT '报价时间',
+  `quote_expected_deliver_at` int(11) NOT NULL DEFAULT '0' COMMENT '报价预计交付时间戳',
   `expire_at` int(11) NOT NULL DEFAULT '0' COMMENT '报价过期时间',
   `order_id` int(11) NOT NULL DEFAULT '0' COMMENT '转正式订单ID',
   `add_time` int(11) NOT NULL DEFAULT '0',

@@ -21,6 +21,8 @@ use app\services\other\PosterServices;
 use app\services\other\QrcodeServices;
 use app\services\other\UploadService;
 use app\services\pay\OrderPayServices;
+use app\services\print3d\PrintInquiryServices;
+use app\services\print3d\PrintNoticeServices;
 use think\facade\Db;
 use app\services\pay\PayServices;
 use app\services\product\product\StoreProductLogServices;
@@ -253,7 +255,10 @@ class StoreOrderServices extends BaseServices
                 $systemValue = SystemConfigService::more($keyValue);
                 //格式化数据
                 $systemValue = Arr::setValeTime($keyValue, is_array($systemValue) ? $systemValue : []);
-                if ($order['pink_id'] || $order['combination_id']) {
+                if ((int)($order['is_print'] ?? 0) === 1) {
+                    $time = $order['add_time'] + max(1, (int)sys_config('pay_timeout_minutes', 15)) * 60;
+                    $status['_msg'] = '请在' . date('m-d H:i:s', (int)$time) . '前完成支付!';
+                } elseif ($order['pink_id'] || $order['combination_id']) {
                     $order_pink_time = $systemValue['order_pink_time'] ?: $systemValue['order_activity_time'];
                     $time = $order['add_time'] + $order_pink_time * 3600;
                     $status['_msg'] = '请在' . date('m-d H:i:s', $time) . '前完成支付!';
@@ -476,7 +481,9 @@ class StoreOrderServices extends BaseServices
         $systemValue = SystemConfigService::more($keyValue);
         //格式化数据
         $systemValue = Arr::setValeTime($keyValue, is_array($systemValue) ? $systemValue : []);
-        if ($order['seckill_id']) {
+        if ((int)($order['is_print'] ?? 0) === 1) {
+            $secs = max(1, (int)sys_config('pay_timeout_minutes', 15)) / 60;
+        } elseif ($order['seckill_id']) {
             $secs = $systemValue['order_seckill_time'] ? $systemValue['order_seckill_time'] : $systemValue['order_activity_time'];
         } elseif ($order['bargain_id']) {
             $secs = $systemValue['order_bargain_time'] ? $systemValue['order_bargain_time'] : $systemValue['order_activity_time'];
@@ -2049,6 +2056,11 @@ HTML;
             }
         });
 
+        // 未支付定制订单取消后立即释放模型绑定，避免文件长期显示为使用中。
+        if ((int)($order['is_print'] ?? 0) === 1) {
+            app()->make(PrintInquiryServices::class)->releaseFileBindingByOrder((int)$order['id']);
+        }
+
         //自定义事件-订单取消
         event('CustomEventListener', ['order_cancel', [
             'uid' => $uid,
@@ -2263,7 +2275,9 @@ HTML;
         /** @var StoreOrderRefundServices $refundServices */
         $refundServices = app()->make(StoreOrderRefundServices::class);
         foreach ($list as $order) {
-            if ($order['pink_id'] || $order['combination_id']) {
+            if ((int)($order['is_print'] ?? 0) === 1) {
+                $secs = max(1, (int)sys_config('pay_timeout_minutes', 15)) / 60;
+            } elseif ($order['pink_id'] || $order['combination_id']) {
                 $secs = $systemValue['order_pink_time'] ?: $systemValue['order_activity_time'];
             } elseif ($order['seckill_id']) {
                 $secs = $systemValue['order_seckill_time'] ?: $systemValue['order_activity_time'];
@@ -2291,6 +2305,16 @@ HTML;
                     /** @var StoreOrderCartInfoServices $cartServices */
                     $cartServices = app()->make(StoreOrderCartInfoServices::class);
                     $cartInfo = $cartServices->getOrderCartInfo((int)$order['id']);
+
+                    if ((int)($order['is_print'] ?? 0) === 1) {
+                        app()->make(PrintInquiryServices::class)->releaseFileBindingByOrder((int)$order['id']);
+                        app()->make(PrintNoticeServices::class)->send(
+                            (int)$order['uid'],
+                            '定制订单支付超时',
+                            '订单' . $order['order_id'] . '因超过支付时限已自动取消，模型文件现可重新询价。',
+                            ['order_id' => (string)$order['order_id']]
+                        );
+                    }
 
                 } catch (\Throwable $e) {
                     Log::error('自动取消订单失败,失败原因:' . $e->getMessage(), $e->getTrace());

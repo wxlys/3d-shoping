@@ -38,6 +38,7 @@
         <el-table-column label="报价" width="110">
           <template slot-scope="scope">{{ scope.row.quote_amount > 0 ? `¥ ${scope.row.quote_amount}` : '-' }}</template>
         </el-table-column>
+        <el-table-column label="预计交付" min-width="160" prop="quote_expected_deliver_at_text" />
         <el-table-column label="提交时间" min-width="160" prop="add_time_text" />
         <el-table-column label="有效期至" min-width="160" prop="expire_at_text" />
         <el-table-column label="状态" width="100">
@@ -69,6 +70,7 @@
         <el-descriptions-item label="尺寸 / 材料">{{ detail.size_level }} / {{ detail.material }}</el-descriptions-item>
         <el-descriptions-item label="数量">{{ detail.quantity }}</el-descriptions-item>
         <el-descriptions-item label="报价">{{ detail.quote_amount > 0 ? `¥ ${detail.quote_amount}` : '-' }}</el-descriptions-item>
+        <el-descriptions-item label="预计交付">{{ detail.quote_expected_deliver_at_text || '-' }}</el-descriptions-item>
         <el-descriptions-item label="有效期至">{{ detail.expire_at_text || '-' }}</el-descriptions-item>
         <el-descriptions-item label="模型操作" :span="2">
           <a v-if="detail.file.file_url" :href="detail.file.file_url" target="_blank">打开 / 下载模型</a>
@@ -90,7 +92,18 @@
             <span slot="prepend">¥</span>
           </el-input>
         </el-form-item>
-        <div class="quote-tip">报价默认有效期 {{ expireHours }} 小时，过期后用户无法确认。</div>
+        <el-form-item label="预计交付：">
+          <el-date-picker
+            v-model="quoteForm.quote_expected_deliver_at"
+            type="datetime"
+            value-format="timestamp"
+            format="yyyy-MM-dd HH:mm"
+            :picker-options="quotePickerOptions"
+            placeholder="请选择预计交付时间"
+            style="width: 250px"
+          />
+        </el-form-item>
+        <div class="quote-tip">报价默认有效期 {{ expireHours }} 小时，预计交付时间须晚于当前时间。</div>
       </el-form>
       <div slot="footer">
         <el-button @click="quoteVisible = false">取消</el-button>
@@ -114,10 +127,13 @@ export default {
       detail: null,
       query: { page: 1, limit: 20, status: '', keyword: '' },
       currentRow: {},
-      quoteForm: { quote_amount: '' },
+      quoteForm: { quote_amount: '', quote_expected_deliver_at: '' },
       quoteVisible: false,
       infoVisible: false,
       expireHours: 48,
+      quotePickerOptions: {
+        disabledDate: (date) => date.getTime() <= Date.now(),
+      },
     };
   },
   created() {
@@ -160,6 +176,7 @@ export default {
     openQuote(row) {
       this.currentRow = row;
       this.quoteForm.quote_amount = '';
+      this.quoteForm.quote_expected_deliver_at = '';
       this.quoteVisible = true;
     },
     saveQuote() {
@@ -167,8 +184,15 @@ export default {
         this.$message.warning('请输入大于0的报价');
         return;
       }
+      if (!this.quoteForm.quote_expected_deliver_at || Number(this.quoteForm.quote_expected_deliver_at) <= Date.now()) {
+        this.$message.warning('请选择晚于当前时间的预计交付时间');
+        return;
+      }
       this.saving = true;
-      printInquiryQuote(this.currentRow.id, { quote_amount: this.quoteForm.quote_amount })
+      printInquiryQuote(this.currentRow.id, {
+        quote_amount: this.quoteForm.quote_amount,
+        quote_expected_deliver_at: this.quoteForm.quote_expected_deliver_at,
+      })
         .then(() => {
           this.$message.success('报价已保存');
           this.quoteVisible = false;
