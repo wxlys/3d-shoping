@@ -103,7 +103,7 @@ ALTER TABLE `eb_store_order`
 
 -- 6. 打印配置分类
 INSERT INTO `eb_system_config_tab` (`id`, `pid`, `title`, `eng_title`, `status`, `info`, `icon`, `type`, `sort`, `menus_id`)
-VALUES (200, 0, '打印设置', 'print_setting', 1, 0, 'md-print', 0, 100, 0)
+VALUES (200, 129, '打印设置', 'print_setting', 1, 0, 'md-print', 0, 99, 23)
 ON DUPLICATE KEY UPDATE `title` = VALUES(`title`);
 
 -- 7. 打印参数（value 为 JSON 编码）
