@@ -759,6 +759,12 @@ HTML;
                 $item['print_pickup_phone'] = $item['print_pickup_phone'] ?? '';
                 $item['print_pickup_address'] = $item['print_pickup_address'] ?? '请在后台“门店管理”配置自提地址';
             }
+            // 普通快递不可核销，列表展开也不展示历史残留核销码。
+            if ((int)($item['is_print'] ?? 0) !== 1
+                && (int)($item['shipping_type'] ?? 0) === 1
+                && ($item['delivery_type'] ?? '') !== 'send') {
+                $item['verify_code'] = '';
+            }
             if ($item['clerk_id'] == 0 && !isset($item['clerk_name'])) {
                 $item['clerk_name'] = '总平台';
             }
@@ -2675,6 +2681,10 @@ HTML;
                 ? str_split($verify_code, 3)
                 : [substr($verify_code, 0, 4), substr($verify_code, 4, 4), substr($verify_code, 8)];
             $order['_verify_code'] = implode(' ', $verify);
+        } elseif (!$canShowVerifyCode) {
+            // 兼容旧版 H5 直接读取 verify_code 的写法：普通快递不应向用户端暴露历史残留核销码。
+            $order['verify_code'] = '';
+            $order['_verify_code'] = '';
         }
         $order['add_time_y'] = date('Y-m-d', $order['add_time']);
         $order['add_time_h'] = date('H:i:s', $order['add_time']);
