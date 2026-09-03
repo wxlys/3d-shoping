@@ -478,6 +478,10 @@ class PrintInquiryServices
                 ]);
                 throw new ApiException('报价已过期，请重新提交询价');
             }
+            $quoteExpectedDeliverAt = (int)($inquiry['quote_expected_deliver_at'] ?? 0);
+            if ($quoteExpectedDeliverAt <= 0) {
+                throw new ApiException('该报价缺少预计交付时间，请联系管理员重新报价');
+            }
 
             $file = Db::name('print_file')->where([
                 'id' => (int)$inquiry['file_id'],
@@ -557,7 +561,7 @@ class PrintInquiryServices
                 'size_level' => (string)$inquiry['size_level'],
                 'material' => (string)$inquiry['material'],
                 'expected_start_at' => 0,
-                'expected_deliver_at' => 0,
+                'expected_deliver_at' => $quoteExpectedDeliverAt,
                 'queue_status' => 0,
                 'progress_note' => '',
                 'inquiry_id' => $id,

@@ -39,18 +39,23 @@ class PrintQueueServices
         }
         $queueNo = (int)Db::name('print_queue')->where('is_del', 0)->max('queue_no') + 1;
         $now = time();
+        $expectedDeliverAt = $this->getManualExpectedDeliverAt($orderInfo);
         $res = Db::name('print_queue')->insert([
             'order_id' => (int)$orderInfo['id'],
             'device_id' => $deviceId,
             'queue_no' => $queueNo,
             'status' => 1,
             'expected_start_at' => 0,
-            'expected_end_at' => 0,
+            'expected_end_at' => $expectedDeliverAt,
             'add_time' => $now,
             'update_time' => $now,
         ]);
         if ($res) {
-            Db::name('store_order')->where('id', (int)$orderInfo['id'])->update(['queue_status' => 1]);
+            $orderUpdate = ['queue_status' => 1];
+            if ($expectedDeliverAt > 0) {
+                $orderUpdate['expected_deliver_at'] = $expectedDeliverAt;
+            }
+            Db::name('store_order')->where('id', (int)$orderInfo['id'])->update($orderUpdate);
             $this->recalcQueue($deviceId);
             $this->sendOrderNotice((int)$orderInfo['id'], '定制订单已进入排队', '你的定制打印订单已付款并进入打印队列，可在订单详情查看预计时间。');
         }
@@ -58,7 +63,12 @@ class PrintQueueServices
     }
 
     /**
-     * 重算设备队列的预计开始/交付时间
+     * 同步设备队列中的手动预计交付时间。
+     *
+     * 排单仍按支付时间维护队列序号和排位，但不再根据尺寸、材料、体积
+     * 或设备调试时长计算交付时间。交付时间以管理员报价时填写的询价单
+     * 时间为唯一来源，避免入队、开始打印、完成或取消后被自动覆盖。
+     *
      * @param int $deviceId
      * @return void
      */
@@ -69,7 +79,7 @@ class PrintQueueServices
             return;
         }
         $now = time();
-        // 锚点：制作中/已完成队列的最后结束时间（若无则从当前时间开始）
+        // 开始时间仍作为排单参考展示，但不再用于推导预计交付时间。
         $anchor = (int)Db::name('print_queue')
             ->where('device_id', $deviceId)
             ->whereIn('status', [self::STATUS_PRINTING, self::STATUS_DONE])
@@ -91,57 +101,29 @@ class PrintQueueServices
             ->toArray();
         foreach ($queueList as $item) {
             $order = Db::name('store_order')->where('id', (int)$item['order_id'])->find();
-            $totalMinutes = $this->computeMinutes(
-                (string)($order['size_level'] ?? ''),
-                (string)($order['material'] ?? ''),
-                (int)$device['setup_minutes']
-            );
+            if (!$order) {
+                continue;
+            }
+            $expectedDeliverAt = $this->getManualExpectedDeliverAt($order);
+            if ($expectedDeliverAt <= 0) {
+                continue;
+            }
             $start = $this->nextBusinessStart(
                 $base,
                 (string)$device['business_start'],
                 (string)$device['business_end']
             );
-            $end = $start + $totalMinutes * 60;
             Db::name('print_queue')->where('id', (int)$item['id'])->update([
                 'expected_start_at' => $start,
-                'expected_end_at' => $end,
+                'expected_end_at' => $expectedDeliverAt,
                 'update_time' => $now,
             ]);
             Db::name('store_order')->where('id', (int)$item['order_id'])->update([
                 'expected_start_at' => $start,
-                'expected_deliver_at' => $end,
+                'expected_deliver_at' => $expectedDeliverAt,
             ]);
-            $base = $end;
+            $base = max($start, $expectedDeliverAt);
         }
-    }
-
-    /**
-     * 计算单笔订单占机时长（打印+调试），单位：分钟
-     * @param string $sizeLevel
-     * @param string $material
-     * @param int $setupMinutes
-     * @return int
-     */
-    protected function computeMinutes(string $sizeLevel, string $material, int $setupMinutes): int
-    {
-        $sizeVolumes = [
-            'S' => (float)sys_config('print_size_s', 100),
-            'M' => (float)sys_config('print_size_m', 500),
-            'L' => (float)sys_config('print_size_l', 2000),
-            'XL' => (float)sys_config('print_size_xl', 4000),
-        ];
-        $speeds = [
-            'PLA' => (float)sys_config('print_speed_pla', 21),
-            'PETG' => (float)sys_config('print_speed_petg', 15),
-        ];
-        $volume = $sizeVolumes[strtoupper($sizeLevel)] ?? 100;
-        $speed = $speeds[strtoupper($material)] ?? 21;
-        $fillRatio = (float)sys_config('print_fill_ratio', 0.2);
-        $efficiency = (float)sys_config('print_efficiency', 0.6);
-        $materialVolume = $volume * $fillRatio;
-        $flowCm3PerMin = $speed * $efficiency * 60 / 1000;
-        $printMinutes = $flowCm3PerMin > 0 ? (int)ceil($materialVolume / $flowCm3PerMin) : 0;
-        return $printMinutes + $setupMinutes;
     }
 
     /**
@@ -220,25 +202,22 @@ class PrintQueueServices
             return false;
         }
         $order = Db::name('store_order')->where('id', $orderId)->find();
-        $device = Db::name('print_device')->where('id', (int)$queue['device_id'])->find();
-        $totalMinutes = $this->computeMinutes(
-            (string)($order['size_level'] ?? ''),
-            (string)($order['material'] ?? ''),
-            (int)($device['setup_minutes'] ?? 30)
-        );
-        $end = $expectedStartAt + $totalMinutes * 60;
+        if (!$order) {
+            return false;
+        }
+        $expectedDeliverAt = $this->getManualExpectedDeliverAt($order);
         Db::name('print_queue')->where('id', (int)$queue['id'])->update([
             'expected_start_at' => $expectedStartAt,
-            'expected_end_at' => $end,
+            'expected_end_at' => $expectedDeliverAt,
             'adjusted_by' => $adjustedBy,
             'adjusted_at' => time(),
             'update_time' => time(),
         ]);
         Db::name('store_order')->where('id', $orderId)->update([
             'expected_start_at' => $expectedStartAt,
-            'expected_deliver_at' => $end,
+            'expected_deliver_at' => $expectedDeliverAt,
         ]);
-        $this->recalcQueue((int)$queue['device_id'], (int)$queue['queue_no'], $end);
+        $this->recalcQueue((int)$queue['device_id'], (int)$queue['queue_no'], $expectedDeliverAt);
         $this->sendOrderNotice($orderId, '定制订单排期已调整', '你的定制打印预计开始时间已调整，请在订单详情查看最新排期。');
         return true;
     }
@@ -321,7 +300,30 @@ class PrintQueueServices
     }
 
     /**
-     * 计算营业时段内的下一个可开始时间（跨天顺延次日营业开始）
+     * 获取管理员在询价阶段填写的预计交付时间。
+     *
+     * 询价单字段优先，兼容历史订单没有询价关联时已保存的订单字段。
+     *
+     * @param array $order
+     * @return int
+     */
+    protected function getManualExpectedDeliverAt(array $order): int
+    {
+        $inquiryId = (int)($order['inquiry_id'] ?? 0);
+        if ($inquiryId > 0) {
+            $expectedDeliverAt = (int)Db::name('inquiry')
+                ->where('id', $inquiryId)
+                ->where('is_del', 0)
+                ->value('quote_expected_deliver_at');
+            if ($expectedDeliverAt > 0) {
+                return $expectedDeliverAt;
+            }
+        }
+        return (int)($order['expected_deliver_at'] ?? 0);
+    }
+
+    /**
+     * 计算营业时段内的下一个可开始时间（仅用于排单参考展示）。
      * @param int $from
      * @param string $businessStart
      * @param string $businessEnd
