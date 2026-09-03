@@ -291,7 +291,8 @@ class PrintQueueServices
         if ($days <= 0) {
             return 0;
         }
-        $limit = time() - $days * 86400;
+        $timeoutSeconds = $days * 86400;
+        $now = time();
         $orders = Db::name('store_order')
             ->where('paid', 1)
             ->where('status', 2)
@@ -313,7 +314,7 @@ class PrintQueueServices
                 ->where('change_type', 'take_delivery')
                 ->order('change_time desc')
                 ->value('change_time');
-            if ($receivedAt <= 0 || $receivedAt > $limit) {
+            if ($receivedAt <= 0 || $this->getEvaluationElapsedSeconds((int)$order['id'], $receivedAt, $now) < $timeoutSeconds) {
                 continue;
             }
 
@@ -336,6 +337,55 @@ class PrintQueueServices
             $completed++;
         }
         return $completed;
+    }
+
+    /**
+     * 计算待评价的有效计时秒数，扣除退款审核期间。
+     *
+     * 退款申请期间订单仍停留在待评价，但这段时间不应消耗评价期限。
+     * 退款表保存申请和处理时间；用户取消退款时则以订单状态记录中的
+     * cancel_refund_order 作为暂停区间的结束时间。
+     */
+    protected function getEvaluationElapsedSeconds(int $orderId, int $receivedAt, int $now): int
+    {
+        $elapsed = max(0, $now - $receivedAt);
+        $refunds = Db::name('store_order_refund')
+            ->where('store_order_id', $orderId)
+            ->where('is_del', 0)
+            ->field('refund_type,refunded_time,is_cancel,add_time')
+            ->select()
+            ->toArray();
+        if (!$refunds) {
+            return $elapsed;
+        }
+
+        foreach ($refunds as $refund) {
+            $startedAt = max($receivedAt, (int)($refund['add_time'] ?? 0));
+            if ($startedAt <= 0 || $startedAt >= $now) {
+                continue;
+            }
+
+            $endedAt = (int)($refund['refunded_time'] ?? 0);
+            if ((int)($refund['is_cancel'] ?? 0) === 1) {
+                $endedAt = (int)Db::name('store_order_status')
+                    ->where('oid', $orderId)
+                    ->where('change_type', 'cancel_refund_order')
+                    ->where('change_time', '>=', $startedAt)
+                    ->where('change_time', '<=', $now)
+                    ->order('change_time asc')
+                    ->value('change_time');
+            } elseif (in_array((int)($refund['refund_type'] ?? 0), [1, 2, 4, 5], true) && $endedAt <= 0) {
+                // 当前订单通常会被上面的 refund_status=0 条件排除；保留该分支，
+                // 防止数据短暂不一致时把仍在审核的退款计入待评价时间。
+                $endedAt = $now;
+            }
+
+            if ($endedAt > $startedAt) {
+                $elapsed -= min($endedAt, $now) - $startedAt;
+            }
+        }
+
+        return max(0, $elapsed);
     }
 
     protected function sendOrderNotice(int $orderId, string $title, string $content): void
