@@ -258,7 +258,7 @@ class CrontabRunServices
     }
 
     /**
-     * 3D打印业务维护：报价过期、待取自动完成、未引用模型清理。
+     * 3D打印业务维护：报价过期、待评价超时自动完成、未引用模型清理。
      */
     public function printMaintenance()
     {

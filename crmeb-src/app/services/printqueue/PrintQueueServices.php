@@ -277,7 +277,12 @@ class PrintQueueServices
     }
 
     /**
-     * 自动收货：待取满 N 天自动完成
+     * 自动完成：收货后待评价满 N 天仍未评价则自动完成。
+     *
+     * 定制订单的用户确认收货和后台取件码核销都会先进入 status=2（待评价），
+     * 收货时间以订单状态表中的 take_delivery 记录为准，不能使用 pickup_at，
+     * 因为 pickup_at 代表打印完成进入待取，而不是用户实际收货时间。
+     *
      * @return int 处理订单数
      */
     public function autoReceipt(): int
@@ -287,22 +292,50 @@ class PrintQueueServices
             return 0;
         }
         $limit = time() - $days * 86400;
-        $ids = Db::name('store_order')
+        $orders = Db::name('store_order')
             ->where('paid', 1)
-            ->where('status', 1)
+            ->where('status', 2)
+            ->where('is_print', 1)
+            ->where('queue_status', self::STATUS_DONE)
             ->where('refund_status', 0)
             ->where('is_del', 0)
-            ->where('pickup_at', '>', 0)
-            ->where('pickup_at', '<=', $limit)
-            ->column('id');
-        if (!$ids) {
+            ->field('id,order_id')
+            ->select()
+            ->toArray();
+        if (!$orders) {
             return 0;
         }
-        Db::name('store_order')->whereIn('id', $ids)->update(['status' => 2]);
-        foreach ($ids as $id) {
-            $this->sendOrderNotice((int)$id, '定制订单已完成', '订单待取已满规定时间，系统已自动确认完成。');
+
+        $completed = 0;
+        foreach ($orders as $order) {
+            $receivedAt = (int)Db::name('store_order_status')
+                ->where('oid', (int)$order['id'])
+                ->where('change_type', 'take_delivery')
+                ->order('change_time desc')
+                ->value('change_time');
+            if ($receivedAt <= 0 || $receivedAt > $limit) {
+                continue;
+            }
+
+            $updated = Db::name('store_order')
+                ->where('id', (int)$order['id'])
+                ->where('status', 2)
+                ->where('refund_status', 0)
+                ->update(['status' => 3]);
+            if (!$updated) {
+                continue;
+            }
+
+            Db::name('store_order_status')->insert([
+                'oid' => (int)$order['id'],
+                'change_type' => 'check_order_over',
+                'change_message' => '评价超时自动完成',
+                'change_time' => time(),
+            ]);
+            $this->sendOrderNotice((int)$order['id'], '定制订单已完成', '评价期限已到，订单已自动完成。');
+            $completed++;
         }
-        return count($ids);
+        return $completed;
     }
 
     protected function sendOrderNotice(int $orderId, string $title, string $content): void

@@ -447,11 +447,18 @@ class StoreOrderServices extends BaseServices
                     '_msg' => '打印已完成，请凭取件码到店取件',
                     '_class' => 'state-ysh',
                 ];
-            } elseif ($order['queue_status'] == 3 && (int)$order['status'] >= 2) {
+            } elseif ($order['queue_status'] == 3 && (int)$order['status'] == 2) {
+                $order['_status'] = [
+                    '_type' => 3,
+                    '_title' => '待评价',
+                    '_msg' => '已确认收货，快去评价一下吧',
+                    '_class' => 'state-ypj',
+                ];
+            } elseif ($order['queue_status'] == 3 && (int)$order['status'] >= 3) {
                 $order['_status'] = [
                     '_type' => 4,
                     '_title' => '已完成',
-                    '_msg' => '已确认收货，感谢您的支持',
+                    '_msg' => '交易完成，感谢您的支持',
                     '_class' => 'state-ytk',
                 ];
             } elseif ($order['queue_status'] == 4) {

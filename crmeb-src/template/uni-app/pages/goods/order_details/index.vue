@@ -83,6 +83,7 @@
 					<view class="navCon acea-row row-between-wrapper" v-else-if="!is_gift">
 						<view :class="status.type == 0 || status.type == -9 ? 'on' : ''">{{ $t(`待付款`) }}</view>
 						<view :class="status.type == 1 || status.type == 2 || status.type == 5 ? 'on' : ''">{{ $t(`待取件`) }}</view>
+						<view :class="status.type == 3 ? 'on' : ''">{{ $t(`待评价`) }}</view>
 						<view :class="status.type == 4 ? 'on' : ''">
 							{{ orderInfo.queue_status == 4 ? $t(`已取消`) : $t(`已完成`) }}
 						</view>
@@ -97,7 +98,9 @@
 						<view class="iconfont" :class="(status.type == 0 || status.type == -9 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 0 ? 'font-num' : '')"></view>
 						<view class="line" :class="status.type > 0 ? 'bg-color' : ''"></view>
 						<view class="iconfont" :class="(status.type == 1 || status.type == 2 || status.type == 5 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 1 ? 'font-num' : '')"></view>
-						<view class="line" :class="status.type >= 4 && status.type != 5 ? 'bg-color' : ''"></view>
+						<view class="line" :class="status.type > 1 && status.type != 5 ? 'bg-color' : ''"></view>
+						<view class="iconfont" :class="(status.type == 3 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 3 && status.type != 5 ? 'font-num' : '')"></view>
+						<view class="line" :class="status.type > 3 && status.type != 5 ? 'bg-color' : ''"></view>
 						<view class="iconfont" :class="(status.type == 4 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 4 && status.type != 5 ? 'font-num' : '')"></view>
 					</view>
 					<view class="progress acea-row row-between-wrapper" v-else-if="!is_gift">

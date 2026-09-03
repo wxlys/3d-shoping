@@ -128,7 +128,7 @@ VALUES
   ('print_material_petg', 'number', 'number', 200, '', 1, '', 100, 0, '0.71', 'PETG 材料系数', '相对 PLA 基准', 14, 1, 0, 0, 0),
   ('pay_timeout_minutes', 'number', 'number', 200, '', 1, '', 100, 0, '15', '支付超时(分钟)', '超时自动取消', 15, 1, 0, 0, 0),
   ('inquiry_expire_hours', 'number', 'number', 200, '', 1, '', 100, 0, '48', '报价有效期(小时)', '超时自动过期', 16, 1, 0, 0, 0),
-  ('auto_receipt_days', 'number', 'number', 200, '', 1, '', 100, 0, '7', '自动收货天数', '待取满N天自动完成', 17, 1, 0, 0, 0),
+  ('auto_receipt_days', 'number', 'number', 200, '', 1, '', 100, 0, '7', '自动完成天数', '待评价满N天自动完成', 17, 1, 0, 0, 0),
   ('print_file_max_mb', 'number', 'number', 200, '', 1, '', 100, 0, '100', '模型文件大小上限(MB)', '上传限制', 18, 1, 0, 0, 0),
   ('print_file_max_count', 'number', 'number', 200, '', 1, '', 100, 0, '50', '模型文件数量上限(个/用户)', '上传限制', 19, 1, 0, 0, 0),
   ('print_file_retain_days', 'number', 'number', 200, '', 1, '', 100, 0, '30', '模型文件保留天数', '未引用自动清理', 20, 1, 0, 0, 0),
