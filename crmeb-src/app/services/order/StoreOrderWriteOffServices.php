@@ -106,10 +106,23 @@ class StoreOrderWriteOffServices extends BaseServices
         }
         /** @var StoreOrderCartInfoServices $orderCartInfo */
         $orderCartInfo = app()->make(StoreOrderCartInfoServices::class);
-        $cartInfo = $orderCartInfo->getOne([
-            ['cart_id', '=', $orderInfo['cart_id'][0]]
-        ], 'cart_info');
-        if ($cartInfo) $orderInfo['image'] = $cartInfo['cart_info']['productInfo']['image'];
+        // 普通订单的 cart_id 可能是数组/JSON，定制打印订单则使用 print_询价单ID 字符串。
+        // 核销只需要商品图片时，统一解析首个有效 cart_id，并兼容空商品信息。
+        $cartId = $orderInfo['cart_id'] ?? '';
+        if (is_string($cartId)) {
+            $decodedCartIds = json_decode($cartId, true);
+            $cartId = is_array($decodedCartIds) ? reset($decodedCartIds) : $cartId;
+        } elseif (is_array($cartId)) {
+            $cartId = reset($cartId);
+        }
+        if ($cartId) {
+            $cartInfo = $orderCartInfo->getOne([
+                ['cart_id', '=', $cartId]
+            ], 'cart_info');
+            $cartData = $cartInfo ? ($cartInfo['cart_info'] ?? []) : [];
+            if (is_string($cartData)) $cartData = json_decode($cartData, true) ?: [];
+            $orderInfo['image'] = (string)($cartData['productInfo']['image'] ?? '');
+        }
         if (!$isPrintOrder && $orderInfo->shipping_type == 2) {
             if ($orderInfo->status > 0) {
                 throw new ApiException('订单已核销');

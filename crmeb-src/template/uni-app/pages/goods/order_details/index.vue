@@ -71,7 +71,7 @@
 			</view>
 			<view class="mb-16" v-if="isGoodsReturn == false">
 				<view class="nav" v-if="is_gift != 2">
-					<view class="navCon acea-row row-between-wrapper" v-if="!is_gift">
+					<view class="navCon acea-row row-between-wrapper" v-if="!is_gift && orderInfo.is_print != 1">
 						<view :class="status.type == 0 || status.type == -9 ? 'on' : ''">{{ $t(`待付款`) }}</view>
 						<view :class="status.type == 1 || status.type == 5 || (orderInfo.is_print == 1 && status.type == 2) ? 'on' : ''">
 							{{ orderInfo.is_print == 1 ? $t(`待取件`) : orderInfo.shipping_type == 1 ? $t(`待发货`) : $t(`待核销`) }}
@@ -80,13 +80,27 @@
 						<view :class="status.type == 3 ? 'on' : ''">{{ $t(`待评价`) }}</view>
 						<view :class="status.type == 4 ? 'on' : ''">{{ $t(`已完成`) }}</view>
 					</view>
+					<view class="navCon acea-row row-between-wrapper" v-else-if="!is_gift">
+						<view :class="status.type == 0 || status.type == -9 ? 'on' : ''">{{ $t(`待付款`) }}</view>
+						<view :class="status.type == 1 || status.type == 2 || status.type == 5 ? 'on' : ''">{{ $t(`待取件`) }}</view>
+						<view :class="status.type == 4 ? 'on' : ''">
+							{{ orderInfo.queue_status == 4 ? $t(`已取消`) : $t(`已完成`) }}
+						</view>
+					</view>
 					<view class="navCon acea-row row-between-wrapper" v-else-if="is_gift !== 2">
 						<view :class="status.type == 0 || status.type == -9 || orderInfo.paid == 1 ? 'on' : ''">{{ $t(`待付款`) }}</view>
 						<view :class="orderInfo.paid == 1 ? 'on' : ''">{{ $t(`待领取`) }}</view>
 						<view :class="orderInfo.gift_uid ? 'on' : ''">{{ $t(`已领取`) }}</view>
 						<view :class="status.type == 4 ? 'on' : ''">{{ $t(`已完成`) }}</view>
 					</view>
-					<view class="progress acea-row row-between-wrapper" v-if="!is_gift">
+					<view class="progress acea-row row-between-wrapper" v-if="!is_gift && orderInfo.is_print == 1">
+						<view class="iconfont" :class="(status.type == 0 || status.type == -9 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 0 ? 'font-num' : '')"></view>
+						<view class="line" :class="status.type > 0 ? 'bg-color' : ''"></view>
+						<view class="iconfont" :class="(status.type == 1 || status.type == 2 || status.type == 5 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 1 ? 'font-num' : '')"></view>
+						<view class="line" :class="status.type >= 4 && status.type != 5 ? 'bg-color' : ''"></view>
+						<view class="iconfont" :class="(status.type == 4 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 4 && status.type != 5 ? 'font-num' : '')"></view>
+					</view>
+					<view class="progress acea-row row-between-wrapper" v-else-if="!is_gift">
 						<view class="iconfont" :class="(status.type == 0 || status.type == -9 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 0 ? 'font-num' : '')"></view>
 						<view class="line" :class="status.type > 0 ? 'bg-color' : ''"></view>
 						<view

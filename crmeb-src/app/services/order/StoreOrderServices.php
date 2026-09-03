@@ -3152,14 +3152,19 @@ HTML;
         $data['product_info'] = [];
         $data['vip_price'] = 0;
         foreach ($orderInfo['cartInfo'] as $item) {
+            $productInfo = is_array($item['productInfo'] ?? null) ? $item['productInfo'] : [];
+            $attrInfo = is_array($item['attrInfo'] ?? null)
+                ? $item['attrInfo']
+                : (is_array($productInfo['attrInfo'] ?? null) ? $productInfo['attrInfo'] : []);
+            $sumPrice = (string)($item['sum_price'] ?? $item['truePrice'] ?? $productInfo['price'] ?? '0.00');
             $data['product_info'][] = [
-                'name' => $item['productInfo']['store_name'],
-                'sku' => $item['attrInfo']['suk'],
-                'price' => $item['sum_price'],
-                'num' => $item['cart_num'],
-                'sum_price' => bcmul((string)$item['sum_price'], (string)$item['cart_num'], 2)
+                'name' => (string)($productInfo['store_name'] ?? ''),
+                'sku' => (string)($attrInfo['suk'] ?? ''),
+                'price' => $sumPrice,
+                'num' => (int)($item['cart_num'] ?? 0),
+                'sum_price' => bcmul($sumPrice, (string)($item['cart_num'] ?? 0), 2)
             ];
-            $data['vip_price'] = bcadd((string)$data['vip_price'], $item['vip_sum_truePrice'], 2);
+            $data['vip_price'] = bcadd((string)$data['vip_price'], (string)($item['vip_sum_truePrice'] ?? $sumPrice), 2);
         }
         return $data;
     }
