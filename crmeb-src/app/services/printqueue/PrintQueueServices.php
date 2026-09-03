@@ -190,9 +190,10 @@ class PrintQueueServices
      * @param int $orderId
      * @param int $expectedStartAt
      * @param int $adjustedBy
+     * @param int $expectedDeliverAt 管理员手动填写的预计交付时间，可选
      * @return bool
      */
-    public function adjustSchedule(int $orderId, int $expectedStartAt, int $adjustedBy = 0): bool
+    public function adjustSchedule(int $orderId, int $expectedStartAt, int $adjustedBy = 0, int $expectedDeliverAt = 0): bool
     {
         if ($expectedStartAt <= time()) {
             return false;
@@ -205,20 +206,39 @@ class PrintQueueServices
         if (!$order) {
             return false;
         }
-        $expectedDeliverAt = $this->getManualExpectedDeliverAt($order);
+        $oldExpectedStartAt = (int)($order['expected_start_at'] ?? 0) ?: (int)($queue['expected_start_at'] ?? 0);
+        $oldExpectedDeliverAt = $this->getManualExpectedDeliverAt($order);
+        // 页面会回传当前交付时间：只有值被改动时才视为手动覆盖，否则按开始时间的位移同步交付时间。
+        if ($expectedDeliverAt > 0 && $expectedDeliverAt !== $oldExpectedDeliverAt) {
+            $nextExpectedDeliverAt = $expectedDeliverAt;
+        } elseif ($oldExpectedStartAt > 0 && $oldExpectedDeliverAt > $oldExpectedStartAt) {
+            $nextExpectedDeliverAt = $oldExpectedDeliverAt + ($expectedStartAt - $oldExpectedStartAt);
+        } else {
+            $nextExpectedDeliverAt = max($oldExpectedDeliverAt, $expectedStartAt + 3600);
+        }
+        if ($nextExpectedDeliverAt <= $expectedStartAt) {
+            return false;
+        }
+        $now = time();
+        if ((int)($order['inquiry_id'] ?? 0) > 0) {
+            Db::name('inquiry')->where('id', (int)$order['inquiry_id'])->where('is_del', 0)->update([
+                'quote_expected_deliver_at' => $nextExpectedDeliverAt,
+                'update_time' => $now,
+            ]);
+        }
         Db::name('print_queue')->where('id', (int)$queue['id'])->update([
             'expected_start_at' => $expectedStartAt,
-            'expected_end_at' => $expectedDeliverAt,
+            'expected_end_at' => $nextExpectedDeliverAt,
             'adjusted_by' => $adjustedBy,
             'adjusted_at' => time(),
-            'update_time' => time(),
+            'update_time' => $now,
         ]);
         Db::name('store_order')->where('id', $orderId)->update([
             'expected_start_at' => $expectedStartAt,
-            'expected_deliver_at' => $expectedDeliverAt,
+            'expected_deliver_at' => $nextExpectedDeliverAt,
         ]);
-        $this->recalcQueue((int)$queue['device_id'], (int)$queue['queue_no'], $expectedDeliverAt);
-        $this->sendOrderNotice($orderId, '定制订单排期已调整', '你的定制打印预计开始时间已调整，请在订单详情查看最新排期。');
+        $this->recalcQueue((int)$queue['device_id'], (int)$queue['queue_no'], $nextExpectedDeliverAt);
+        $this->sendOrderNotice($orderId, '定制订单排期已调整', '你的定制打印预计开始时间和交付时间已更新，请在订单详情查看最新排期。');
         return true;
     }
 

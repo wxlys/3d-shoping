@@ -70,6 +70,9 @@
         <el-form-item label="预计开始：">
           <el-date-picker v-model="scheduleForm.expected_start_at" type="datetime" value-format="timestamp" format="yyyy-MM-dd HH:mm" placeholder="选择开始时间" style="width: 260px" />
         </el-form-item>
+        <el-form-item label="预计交付：">
+          <el-date-picker v-model="scheduleForm.expected_deliver_at" type="datetime" value-format="timestamp" format="yyyy-MM-dd HH:mm" placeholder="选择交付时间" style="width: 260px" />
+        </el-form-item>
       </el-form>
       <div slot="footer">
         <el-button @click="scheduleVisible = false">取消</el-button>
@@ -119,7 +122,7 @@ export default {
       currentRow: {},
       scheduleVisible: false,
       progressVisible: false,
-      scheduleForm: { expected_start_at: '' },
+      scheduleForm: { expected_start_at: '', expected_deliver_at: '' },
       progressForm: { progress_note: '' },
       summaryItems: [
         { key: 1, label: '排队中', className: 'warning' },
@@ -184,16 +187,28 @@ export default {
     openSchedule(row) {
       this.currentRow = row;
       this.scheduleForm.expected_start_at = row.expected_start_at ? Number(row.expected_start_at) * 1000 : Date.now() + 3600000;
+      this.scheduleForm.expected_deliver_at = row.expected_end_at
+        ? Number(row.expected_end_at) * 1000
+        : this.scheduleForm.expected_start_at + 86400000;
       this.scheduleVisible = true;
     },
     saveSchedule() {
-      const timestamp = Number(this.scheduleForm.expected_start_at || 0) / 1000;
-      if (!timestamp || timestamp <= Date.now() / 1000) {
+      const startTimestamp = Number(this.scheduleForm.expected_start_at || 0) / 1000;
+      const deliverTimestamp = Number(this.scheduleForm.expected_deliver_at || 0) / 1000;
+      if (!startTimestamp || startTimestamp <= Date.now() / 1000) {
         this.$message.warning('排期时间必须晚于当前时间');
         return;
       }
+      if (!deliverTimestamp || deliverTimestamp <= startTimestamp) {
+        this.$message.warning('预计交付时间必须晚于预计开始时间');
+        return;
+      }
       this.saving = true;
-      printQueueAdjust({ order_id: this.currentRow.order_db_id, expected_start_at: Math.floor(timestamp) })
+      printQueueAdjust({
+        order_id: this.currentRow.order_db_id,
+        expected_start_at: Math.floor(startTimestamp),
+        expected_deliver_at: Math.floor(deliverTimestamp),
+      })
         .then(() => {
           this.$message.success('排期已调整');
           this.scheduleVisible = false;

@@ -92,11 +92,23 @@ class StoreOrderTakeServices extends BaseServices
         if($orderIsRefund){
             throw new ApiException('订单退款中，不能收货');
         }
-        /** @var StoreOrderServices $orderServices */
-        $orderServices = app()->make(StoreOrderServices::class);
-        $order = $orderServices->tidyOrder($order);
-        if ($order['_status']['_type'] != 2) {
-            throw new ApiException('订单状态错误');
+        // 定制打印订单没有普通商品的“发货后待收货”阶段，打印完成后直接进入到店取件。
+        // 这里按独立的排单状态判断，避免 tidyOrder 的通用状态机把待取订单判成不可收货。
+        if ((int)($order['is_print'] ?? 0) === 1) {
+            if ((int)$order['paid'] !== 1
+                || (int)$order['refund_status'] !== 0
+                || (int)$order['is_cancel'] !== 0
+                || (int)$order['status'] !== 1
+                || (int)$order['queue_status'] !== 3) {
+                throw new ApiException('打印订单尚未进入待取件状态');
+            }
+        } else {
+            /** @var StoreOrderServices $orderServices */
+            $orderServices = app()->make(StoreOrderServices::class);
+            $order = $orderServices->tidyOrder($order);
+            if ($order['_status']['_type'] != 2) {
+                throw new ApiException('订单状态错误');
+            }
         }
         //存在拆分发货 需要分开收货
         if ($this->dao->count(['pid' => $order['id']])) {

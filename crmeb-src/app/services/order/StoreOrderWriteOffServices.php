@@ -17,6 +17,7 @@ use app\services\activity\combination\StorePinkServices;
 use app\services\BaseServices;
 use app\services\system\store\SystemStoreStaffServices;
 use app\services\user\UserServices;
+use app\services\printqueue\PrintQueueServices;
 use crmeb\exceptions\ApiException;
 
 /**
@@ -59,7 +60,13 @@ class StoreOrderWriteOffServices extends BaseServices
         if (!$orderInfo) {
             throw new ApiException('订单不存在');
         }
-        if (($orderInfo['status'] > 0 && $orderInfo->shipping_type == 2) || ($orderInfo['status'] > 1 && $orderInfo->delivery_type == 'send')) {
+        $isPrintOrder = (int)($orderInfo['is_print'] ?? 0) === 1;
+        if ($isPrintOrder) {
+            if ((int)$orderInfo['queue_status'] !== PrintQueueServices::STATUS_DONE
+                || (int)$orderInfo['status'] !== 1) {
+                throw new ApiException('打印订单尚未进入待取件状态');
+            }
+        } elseif (($orderInfo['status'] > 0 && $orderInfo->shipping_type == 2) || ($orderInfo['status'] > 1 && $orderInfo->delivery_type == 'send')) {
             throw new ApiException('该订单已被核销');
         }
         if (!$orderInfo['verify_code'] || ($orderInfo->shipping_type != 2 && $orderInfo->delivery_type != 'send')) {
@@ -103,7 +110,7 @@ class StoreOrderWriteOffServices extends BaseServices
             ['cart_id', '=', $orderInfo['cart_id'][0]]
         ], 'cart_info');
         if ($cartInfo) $orderInfo['image'] = $cartInfo['cart_info']['productInfo']['image'];
-        if ($orderInfo->shipping_type == 2) {
+        if (!$isPrintOrder && $orderInfo->shipping_type == 2) {
             if ($orderInfo->status > 0) {
                 throw new ApiException('订单已核销');
             }

@@ -161,18 +161,19 @@
               !scope.row.refund.length
             "
           />
-          <a v-db-click @click="delivery(scope.row)" v-if="scope.row._status === 4 && !scope.row.split.length"
+          <a v-db-click @click="delivery(scope.row)" v-if="scope.row._status === 4 && !scope.row.split.length && scope.row.is_print !== 1"
             >配送信息</a
           >
-          <el-divider direction="vertical" v-if="scope.row._status === 4 && !scope.row.split.length" />
+          <el-divider direction="vertical" v-if="scope.row._status === 4 && !scope.row.split.length && scope.row.is_print !== 1" />
           <a
             v-db-click
             @click="bindWrite(scope.row)"
             v-if="
               scope.row.shipping_type == 2 &&
-              scope.row.status == 0 &&
               scope.row.paid == 1 &&
-              scope.row.refund_status === 0
+              scope.row.refund_status === 0 &&
+              ((scope.row.is_print !== 1 && scope.row.status == 0) ||
+                (scope.row.is_print === 1 && scope.row.queue_status == 3 && scope.row.status == 1))
             "
             >立即核销</a
           >
@@ -180,9 +181,10 @@
             direction="vertical"
             v-if="
               scope.row.shipping_type == 2 &&
-              scope.row.status == 0 &&
               scope.row.paid == 1 &&
-              scope.row.refund_status === 0
+              scope.row.refund_status === 0 &&
+              ((scope.row.is_print !== 1 && scope.row.status == 0) ||
+                (scope.row.is_print === 1 && scope.row.queue_status == 3 && scope.row.status == 1))
             "
           />
           <template>
@@ -295,8 +297,8 @@
           <el-input
             style="width: 414px"
             type="text"
-            placeholder="请输入12位核销码"
-            v-model.number="writeOffFrom.code"
+            placeholder="请输入6位取件码或12位核销码"
+            v-model="writeOffFrom.code"
           />
         </el-form-item>
       </el-form>
@@ -389,16 +391,11 @@ export default {
       if (!value) {
         return callback(new Error('请填写核销码'));
       }
-      // 模拟异步验证效果
-      if (!Number.isInteger(value)) {
-        callback(new Error('请填写12位数字'));
+      const reg = /^(\d{6}|\d{12})$/;
+      if (!reg.test(String(value))) {
+        callback(new Error('请填写6位取件码或12位核销码'));
       } else {
-        const reg = /\b\d{12}\b/;
-        if (!reg.test(value)) {
-          callback(new Error('请填写12位数字'));
-        } else {
-          callback();
-        }
+        callback();
       }
     };
     return {

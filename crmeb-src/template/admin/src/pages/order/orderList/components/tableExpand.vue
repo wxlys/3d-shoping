@@ -35,6 +35,14 @@
         <span class="expand-key">核销码：</span>
         <span class="expand-value" v-text="row.verify_code ? row.verify_code : '无'"></span>
       </el-col>
+      <el-col :span="12" v-if="row.is_print == 1">
+        <span class="expand-key">打印自提点：</span>
+        <span class="expand-value">
+          {{ row.print_pickup_name || '打印自提点' }}
+          <span v-if="row.print_pickup_phone">（{{ row.print_pickup_phone }}）</span>
+          {{ row.print_pickup_address || '请在后台“门店管理”配置自提地址' }}
+        </span>
+      </el-col>
     </el-row>
   </div>
 </template>

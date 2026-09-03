@@ -86,14 +86,15 @@ class PrintQueue extends AuthController
 
     public function adjust()
     {
-        [$orderId, $expectedStartAt] = $this->request->postMore([
+        [$orderId, $expectedStartAt, $expectedDeliverAt] = $this->request->postMore([
             ['order_id', 0],
             ['expected_start_at', 0],
+            ['expected_deliver_at', 0],
         ], true);
         if (!$orderId || (int)$expectedStartAt <= time()) {
             return app('json')->fail('排期时间必须晚于当前时间');
         }
-        if (!$this->services->adjustSchedule((int)$orderId, (int)$expectedStartAt, (int)$this->adminId)) {
+        if (!$this->services->adjustSchedule((int)$orderId, (int)$expectedStartAt, (int)$this->adminId, (int)$expectedDeliverAt)) {
             return app('json')->fail('当前订单不能调整排期');
         }
         return app('json')->success('排期已调整');

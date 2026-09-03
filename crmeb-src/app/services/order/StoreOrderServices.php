@@ -440,12 +440,19 @@ class StoreOrderServices extends BaseServices
                     '_msg' => '模型正在制作中，完成后会通知您取件',
                     '_class' => 'state-nfh',
                 ];
-            } elseif ($order['queue_status'] == 3) {
+            } elseif ($order['queue_status'] == 3 && (int)$order['status'] < 2) {
                 $order['_status'] = [
                     '_type' => 2,
                     '_title' => '待取件',
                     '_msg' => '打印已完成，请凭取件码到店取件',
                     '_class' => 'state-ysh',
+                ];
+            } elseif ($order['queue_status'] == 3 && (int)$order['status'] >= 2) {
+                $order['_status'] = [
+                    '_type' => 4,
+                    '_title' => '已完成',
+                    '_msg' => '已确认收货，感谢您的支持',
+                    '_class' => 'state-ytk',
                 ];
             } elseif ($order['queue_status'] == 4) {
                 $order['_status'] = [
@@ -697,6 +704,44 @@ HTML;
                 $item['_status'] = 10;//拆单发货 已全部申请退款
             } else if ($item['paid'] == 1 && $item['refund_status'] == 3 && $item['status'] == 0) {
                 $item['_status'] = 11;//拆单退款 未发货
+            }
+            // 定制打印订单使用排单状态展示实际履约阶段，不再显示普通核销订单文案。
+            if ((int)($item['is_print'] ?? 0) === 1 && $item['paid'] == 1 && $item['refund_status'] == 0) {
+                if ((int)$item['queue_status'] === 1) {
+                    $status_name['status_name'] = '排队中';
+                    $item['_status'] = 2;
+                } elseif ((int)$item['queue_status'] === 2) {
+                    $status_name['status_name'] = '制作中';
+                    $item['_status'] = 2;
+                } elseif ((int)$item['queue_status'] === 3 && (int)$item['status'] < 2) {
+                    $status_name['status_name'] = '待取件';
+                    $item['_status'] = 4;
+                } elseif ((int)$item['queue_status'] === 3 && (int)$item['status'] >= 2) {
+                    $status_name['status_name'] = '已完成';
+                    $item['_status'] = 6;
+                }
+                $item['status_name'] = $status_name;
+            }
+            if ((int)($item['is_print'] ?? 0) === 1 && (int)$item['shipping_type'] === 2) {
+                $pickupStoreId = (int)($item['store_id'] ?? 0);
+                if (!$pickupStoreId) {
+                    $pickupStoreId = (int)Db::name('system_store')
+                        ->where('is_del', 0)
+                        ->where('is_show', 1)
+                        ->order('id asc')
+                        ->value('id');
+                }
+                if ($pickupStoreId) {
+                    $pickupStore = app()->make(SystemStoreServices::class)->getStoreDispose($pickupStoreId);
+                    if ($pickupStore) {
+                        $item['print_pickup_name'] = (string)$pickupStore['name'];
+                        $item['print_pickup_phone'] = (string)$pickupStore['phone'];
+                        $item['print_pickup_address'] = (string)$pickupStore['address'] . (string)$pickupStore['detailed_address'];
+                    }
+                }
+                $item['print_pickup_name'] = $item['print_pickup_name'] ?? (sys_config('site_name') ?: '打印自提点');
+                $item['print_pickup_phone'] = $item['print_pickup_phone'] ?? '';
+                $item['print_pickup_address'] = $item['print_pickup_address'] ?? '请在后台“门店管理”配置自提地址';
             }
             if ($item['clerk_id'] == 0 && !isset($item['clerk_name'])) {
                 $item['clerk_name'] = '总平台';
@@ -2603,7 +2648,8 @@ HTML;
         //是否开启门店自提
         $store_self_mention = sys_config('store_self_mention');
         //关闭门店自提后 订单隐藏门店信息
-        if ($store_self_mention == 0) $order['shipping_type'] = 1;
+        // 定制打印固定为到店自取，不受普通商品“门店自提开关”影响。
+        if ($store_self_mention == 0 && (int)($order['is_print'] ?? 0) !== 1) $order['shipping_type'] = 1;
         if ($order['verify_code']) {
             $verify_code = $order['verify_code'];
             $verify[] = substr($verify_code, 0, 4);
@@ -2618,6 +2664,31 @@ HTML;
             /** @var SystemStoreServices $storeServices */
             $storeServices = app()->make(SystemStoreServices::class);
             $order['system_store'] = $storeServices->getStoreDispose($order['store_id']);
+        }
+        if ((int)($order['is_print'] ?? 0) === 1 && !$order['system_store']) {
+            // 历史定制订单可能没有保存门店 ID，优先补取当前启用的第一个自提点。
+            $storeId = (int)Db::name('system_store')
+                ->where('is_del', 0)
+                ->where('is_show', 1)
+                ->order('id asc')
+                ->value('id');
+            if ($storeId) {
+                /** @var SystemStoreServices $storeServices */
+                $storeServices = app()->make(SystemStoreServices::class);
+                $order['system_store'] = $storeServices->getStoreDispose($storeId);
+            }
+            if (!$order['system_store']) {
+                $order['system_store'] = [
+                    'id' => 0,
+                    'name' => sys_config('site_name') ?: '打印自提点',
+                    'phone' => '',
+                    'address' => '',
+                    'detailed_address' => '请在后台“门店管理”配置自提地址',
+                    'day_time' => '',
+                    'latitude' => '',
+                    'longitude' => '',
+                ];
+            }
         }
         $order['code'] = '';
         if (($order['shipping_type'] === 2 || $order['delivery_uid'] != 0) && $order['verify_code']) {

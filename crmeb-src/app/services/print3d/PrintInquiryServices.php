@@ -499,6 +499,13 @@ class PrintInquiryServices
             $quoteAmount = number_format((float)$inquiry['quote_amount'], 2, '.', '');
             $cartId = 'print_' . $id;
             $unique = md5($cartId . $orderNo . $uid);
+            // 定制打印固定为到店自取；如果后台已经配置自提点，则把首个启用点绑定到订单。
+            // 没有配置门店时仍允许订单生成，详情接口会明确提示管理员配置自提地址。
+            $storeId = (int)Db::name('system_store')
+                ->where('is_del', 0)
+                ->where('is_show', 1)
+                ->order('id asc')
+                ->value('id');
 
             $orderDbId = Db::name('store_order')->insertGetId([
                 'pid' => 0,
@@ -538,7 +545,7 @@ class PrintInquiryServices
                 'bargain_id' => 0,
                 'advance_id' => 0,
                 'verify_code' => '',
-                'store_id' => 0,
+                'store_id' => $storeId,
                 'shipping_type' => 2,
                 'clerk_id' => 0,
                 'is_channel' => 0,

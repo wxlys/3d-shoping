@@ -73,8 +73,8 @@
 				<view class="nav" v-if="is_gift != 2">
 					<view class="navCon acea-row row-between-wrapper" v-if="!is_gift">
 						<view :class="status.type == 0 || status.type == -9 ? 'on' : ''">{{ $t(`待付款`) }}</view>
-						<view :class="status.type == 1 || status.type == 5 ? 'on' : ''">
-							{{ orderInfo.shipping_type == 1 ? $t(`待发货`) : $t(`待核销`) }}
+						<view :class="status.type == 1 || status.type == 5 || (orderInfo.is_print == 1 && status.type == 2) ? 'on' : ''">
+							{{ orderInfo.is_print == 1 ? $t(`待取件`) : orderInfo.shipping_type == 1 ? $t(`待发货`) : $t(`待核销`) }}
 						</view>
 						<view :class="status.type == 2 ? 'on' : ''" v-if="orderInfo.shipping_type == 1">{{ $t(`待收货`) }}</view>
 						<view :class="status.type == 3 ? 'on' : ''">{{ $t(`待评价`) }}</view>
@@ -209,10 +209,10 @@
 					<view v-else class="address acea-row row-between-wrapper">
 						<view class="address-box">
 							<view class="name" @tap="makePhone">
-								{{ orderInfo.system_store.name }}
+								{{ orderInfo.is_print == 1 ? $t(`打印自提点`) + '：' : '' }}{{ orderInfo.system_store.name }}
 								<text class="phone">{{ orderInfo.system_store.phone }}</text>
 							</view>
-							<view>{{ orderInfo.system_store.detailed_address }}</view>
+							<view>{{ orderInfo.system_store.address }}{{ orderInfo.system_store.detailed_address }}</view>
 						</view>
 						<view class="icon acea-row row-middle">
 							<view class="iconfont icon-dianhua" @click.stop="makePhone"></view>
@@ -867,7 +867,7 @@ export default {
 							})
 							.catch((err) => {
 								return that.$util.Tips({
-									title: err
+								title: (typeof err === 'string' ? err : (err && (err.msg || err.message))) || that.$t(`操作失败`)
 								});
 							});
 					}
@@ -886,7 +886,7 @@ export default {
 				})
 				.catch((err) => {
 					this.$util.Tips({
-						title: err
+						title: (typeof err === 'string' ? err : (err && (err.msg || err.message))) || this.$t(`加载客服信息失败`)
 					});
 				});
 		},
@@ -1356,7 +1356,7 @@ export default {
 							})
 							.catch((err) => {
 								return that.$util.Tips({
-									title: err
+									title: (typeof err === 'string' ? err : (err && (err.msg || err.message))) || that.$t(`确认收货失败`)
 								});
 							});
 					}
