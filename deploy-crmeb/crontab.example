@@ -1,0 +1,4 @@
+# CRMEB API 定时任务执行器
+# 服务器 PHP 容器未启用 pcntl，不能使用 `php think timer start`；改由宿主机每分钟调用一次内置任务接口。
+# 任务具体执行频率仍由 eb_system_timer.next_execution_time 控制。
+* * * * * /usr/bin/flock -n /tmp/crmeb-crontab.lock /usr/bin/curl --fail --silent --show-error --max-time 20 http://127.0.0.1:18080/api/crontab/run >/dev/null 2>&1

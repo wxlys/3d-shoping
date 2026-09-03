@@ -60,3 +60,15 @@ docker compose exec mysql mysql -uroot -pCrmeb@2026 crmeb -e "show tables;" | he
 - 管理后台：`template/admin` 构建后产物放到 `crmeb/public/admin`，访问 `http://服务器IP:18080/admin`。
 - 用户端 H5：`template/uni-app` 构建后部署到 `crmeb/public`。
 - App：uni-app 编译的 APK 连接 `http://服务器IP:18080/api`。
+
+## 定时任务执行
+
+当前 PHP 容器未启用 `pcntl`，不能使用 `php think timer start` 启动 Workerman 定时器。服务器应使用宿主机 Cron 每分钟调用 CRMEB 内置任务接口：
+
+```bash
+crontab -l 2>/dev/null > /tmp/crmeb-crontab
+cat deploy-crmeb/crontab.example >> /tmp/crmeb-crontab
+crontab /tmp/crmeb-crontab
+```
+
+任务具体是否到执行时间由 `eb_system_timer.next_execution_time` 控制；`/api/crontab/run` 每分钟调用不会重复执行未到期任务。
