@@ -59,7 +59,14 @@ class StoreOrderDeliveryServices extends BaseServices
         if ($orderInfo->is_del) {
             throw new AdminException('订单已删除,不能发货');
         }
-        if ($orderInfo->status) {
+        // 兼容早期改版逻辑产生的异常订单：支付后被写成 status=1，但没有任何配送类型。
+        // 这类订单实际仍未发货，应允许管理员回到正常的发货流程；真正已发货的订单仍禁止重复发货。
+        $legacyUnshipped = (int)$orderInfo->status === 1
+            && (int)($orderInfo['is_print'] ?? 0) !== 1
+            && (int)($orderInfo['shipping_type'] ?? 0) === 1
+            && (int)($orderInfo['virtual_type'] ?? 0) === 0
+            && empty($orderInfo->delivery_type);
+        if ($orderInfo->status && !$legacyUnshipped) {
             throw new AdminException('订单已发货请勿重复操作');
         }
         if ($orderInfo->shipping_type == 2) {
@@ -268,6 +275,8 @@ class StoreOrderDeliveryServices extends BaseServices
                 $f[] = Form::select('delivery_code', '快递公司', (string)$orderInfo->getData('delivery_code'))->setOptions($expressServices->expressSelectForm(['is_show' => 1]))->required('请选择快递公司')->filterable(true);
                 $f[] = Form::input('delivery_id', '快递单号', $orderInfo->getData('delivery_id'))->required('请填写快递单号');
                 break;
+            default:
+                throw new AdminException('订单尚未发货，请使用“发货”操作填写配送信息');
         }
         return create_form('配送信息', $f, $this->url('/order/distribution/' . $id), 'PUT');
     }
@@ -312,7 +321,7 @@ class StoreOrderDeliveryServices extends BaseServices
                 throw new AdminException('虚拟发货，无需修改发货信息');
                 break;
             default:
-                throw new AdminException('未发货，请先发货再修改配送信息');
+                throw new AdminException('订单尚未发货，请使用“发货”操作填写配送信息');
                 break;
         }
         /** @var StoreOrderStatusServices $statusService */
@@ -452,6 +461,7 @@ class StoreOrderDeliveryServices extends BaseServices
         /** @var StoreOrderCartInfoServices $orderInfoServices */
         $orderInfoServices = app()->make(StoreOrderCartInfoServices::class);
         $storeName = $orderInfoServices->getCarIdByProductTitle((int)$orderInfo->id);
+        $noticeOrderInfo = is_object($orderInfo) ? $orderInfo->toArray() : (array)$orderInfo;
 
         if (isset($data['pickup_time']) && count($data['pickup_time']) == 2) {
             $data['pickup_start_time'] = $data['pickup_time'][0];
@@ -469,24 +479,24 @@ class StoreOrderDeliveryServices extends BaseServices
                 event('NoticeListener', [['orderInfo' => $orderInfo, 'storeName' => $storeName, 'data' => $data], 'order_postage_success']);
 
                 //自定义消息-快递发货
-                $orderInfo['storeName'] = $storeName;
-                $orderInfo['delivery_name'] = $data['delivery_name'];
-                $orderInfo['delivery_id'] = $data['delivery_id'];
-                $orderInfo['time'] = date('Y-m-d H:i:s');
-                $orderInfo['phone'] = $orderInfo['user_phone'];
-                event('CustomNoticeListener', [$orderInfo['uid'], $orderInfo, 'order_express_success']);
+                $noticeOrderInfo['storeName'] = $storeName;
+                $noticeOrderInfo['delivery_name'] = $data['delivery_name'];
+                $noticeOrderInfo['delivery_id'] = $data['delivery_id'];
+                $noticeOrderInfo['time'] = date('Y-m-d H:i:s');
+                $noticeOrderInfo['phone'] = $orderInfo['user_phone'];
+                event('CustomNoticeListener', [$noticeOrderInfo['uid'], $noticeOrderInfo, 'order_express_success']);
                 break;
             case 2://配送
                 $this->orderDelivery($id, $data, $orderInfo, $storeName);
                 event('NoticeListener', [['orderInfo' => $orderInfo, 'storeName' => $storeName, 'data' => $data], 'order_deliver_success']);
 
                 //自定义消息-配送员配送
-                $orderInfo['storeName'] = $storeName;
-                $orderInfo['delivery_name'] = $data['delivery_name'];
-                $orderInfo['delivery_id'] = $data['delivery_id'];
-                $orderInfo['time'] = date('Y-m-d H:i:s');
-                $orderInfo['phone'] = $orderInfo['user_phone'];
-                event('CustomNoticeListener', [$orderInfo['uid'], $orderInfo, 'order_send_success']);
+                $noticeOrderInfo['storeName'] = $storeName;
+                $noticeOrderInfo['delivery_name'] = $data['delivery_name'];
+                $noticeOrderInfo['delivery_id'] = $data['delivery_id'];
+                $noticeOrderInfo['time'] = date('Y-m-d H:i:s');
+                $noticeOrderInfo['phone'] = $orderInfo['user_phone'];
+                event('CustomNoticeListener', [$noticeOrderInfo['uid'], $noticeOrderInfo, 'order_send_success']);
                 break;
             case 3://虚拟发货
                 $this->orderVirtualDelivery($id, $data, $orderInfo, $storeName);

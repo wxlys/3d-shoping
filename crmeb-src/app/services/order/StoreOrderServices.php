@@ -389,10 +389,11 @@ class StoreOrderServices extends BaseServices
                     $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_split'], 'change_time')) . '服务商已拆分多个包裹发货';
                     $status['_class'] = 'state-ysh';
                 } else {
-                    $status['_type'] = 2;
-                    $status['_title'] = '待收货';
-                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_fictitious'], 'change_time')) . '服务商已虚拟发货';
-                    $status['_class'] = 'state-ysh';
+                    // 没有配送类型就没有真实发货，不能按虚拟发货处理。
+                    $status['_type'] = 1;
+                    $status['_title'] = (int)$order['shipping_type'] === 2 ? '待核销' : '待发货';
+                    $status['_msg'] = (int)$order['shipping_type'] === 2 ? '待核销,请到核销点进行核销' : '商家未发货,请耐心等待';
+                    $status['_class'] = 'state-nfh';
                 }
             } else if ($order['status'] == 2) {
                 $status['_type'] = 3;
@@ -421,7 +422,11 @@ class StoreOrderServices extends BaseServices
         $order['expected_deliver_at'] = (int)($order['expected_deliver_at'] ?? 0);
         $order['progress_note'] = (string)($order['progress_note'] ?? '');
         $order['queue_position'] = 0;
-        $order['pickup_code'] = ($order['status'] == 1 && !empty($order['verify_code'])) ? $order['verify_code'] : '';
+        $canShowPickupCode = (int)($order['is_print'] ?? 0) === 1
+            || (int)($order['shipping_type'] ?? 0) === 2
+            || ($order['delivery_type'] ?? '') === 'send';
+        $order['pickup_code'] = ((int)($order['status'] ?? 0) === 1 && !empty($order['verify_code']) && $canShowPickupCode)
+            ? $order['verify_code'] : '';
         // 定制打印订单使用独立的排单状态，避免支付后仍显示成普通商品的“待核销”。
         // 退款状态优先于排单状态，避免退款完成后被“排单已取消”覆盖成退款中。
         if ($order['is_print'] == 1 && !empty($order['paid'])
@@ -656,6 +661,8 @@ class StoreOrderServices extends BaseServices
                 $status_name['status_name'] = '部分发货';
             } else if ($item['paid'] == 1 && $item['status'] == 0 && $item['shipping_type'] == 2 && $item['refund_status'] == 0) {
                 $status_name['status_name'] = '未核销';
+            } else if ($item['paid'] == 1 && $item['status'] == 1 && $item['shipping_type'] == 1 && $item['refund_status'] == 0 && empty($item['delivery_type'])) {
+                $status_name['status_name'] = '未发货';
             } else if ($item['paid'] == 1 && $item['status'] == 1 && $item['shipping_type'] == 1 && $item['refund_status'] == 0) {
                 $status_name['status_name'] = '待收货';
             } else if ($item['paid'] == 1 && $item['status'] == 1 && $item['shipping_type'] == 2 && $item['refund_status'] == 0) {
@@ -697,6 +704,8 @@ HTML;
                 $item['_status'] = 8;//已支付 部分发货
             } else if ($item['paid'] == 1 && $item['refund_status'] == 1) {
                 $item['_status'] = 3;//已支付 申请退款中
+            } else if ($item['paid'] == 1 && $item['status'] == 1 && $item['shipping_type'] == 1 && $item['refund_status'] == 0 && empty($item['delivery_type'])) {
+                $item['_status'] = 2;//历史异常订单兼容为已支付未发货
             } else if ($item['paid'] == 1 && $item['status'] == 1 && $item['refund_status'] == 0) {
                 $item['_status'] = 4;//已支付 待收货
             } else if ($item['paid'] == 1 && $item['status'] == 2 && $item['refund_status'] == 0) {
@@ -2657,11 +2666,14 @@ HTML;
         //关闭门店自提后 订单隐藏门店信息
         // 定制打印固定为到店自取，不受普通商品“门店自提开关”影响。
         if ($store_self_mention == 0 && (int)($order['is_print'] ?? 0) !== 1) $order['shipping_type'] = 1;
-        if ($order['verify_code']) {
+        $canShowVerifyCode = (int)($order['shipping_type'] ?? 0) === 2
+            || (int)($order['delivery_uid'] ?? 0) !== 0
+            || (int)($order['is_print'] ?? 0) === 1;
+        if (!empty($order['verify_code']) && $canShowVerifyCode) {
             $verify_code = $order['verify_code'];
-            $verify[] = substr($verify_code, 0, 4);
-            $verify[] = substr($verify_code, 4, 4);
-            $verify[] = substr($verify_code, 8);
+            $verify = strlen($verify_code) === 6
+                ? str_split($verify_code, 3)
+                : [substr($verify_code, 0, 4), substr($verify_code, 4, 4), substr($verify_code, 8)];
             $order['_verify_code'] = implode(' ', $verify);
         }
         $order['add_time_y'] = date('Y-m-d', $order['add_time']);
@@ -2698,7 +2710,7 @@ HTML;
             }
         }
         $order['code'] = '';
-        if (($order['shipping_type'] === 2 || $order['delivery_uid'] != 0) && $order['verify_code']) {
+        if (((int)($order['shipping_type'] ?? 0) === 2 || (int)($order['delivery_uid'] ?? 0) !== 0 || (int)($order['is_print'] ?? 0) === 1) && !empty($order['verify_code'])) {
 //            $name = $order['verify_code'] . '.jpg';
 //            /** @var SystemAttachmentServices $attachmentServices */
 //            $attachmentServices = app()->make(SystemAttachmentServices::class);
@@ -2791,14 +2803,14 @@ HTML;
         $orderData['refund_total_num'] = $orderData['total_num'];
         $orderData['refund_pay_price'] = $orderData['pay_price'];
         // 3D打印改版：一期退款入口严格跟随 PRD。
-        // 定制订单仅允许“已支付且尚未开始打印（排队中）”申请；成品/秒杀仅待取状态允许申请。
+        // 定制订单仅允许“已支付且尚未开始打印（排队中）”申请；普通订单在尚未履约时申请。
         if ((int)($orderData['is_print'] ?? 0) === 1) {
             $orderData['is_apply_refund'] = (int)$orderData['paid'] === 1
                 && (int)($orderData['queue_status'] ?? 0) === 1
                 && (int)$orderData['refund_status'] === 0;
         } else {
             $orderData['is_apply_refund'] = (int)$orderData['paid'] === 1
-                && (int)$orderData['status'] === 1
+                && (int)$orderData['status'] === 0
                 && (int)$orderData['refund_status'] === 0;
         }
         $orderData['help_info'] = [

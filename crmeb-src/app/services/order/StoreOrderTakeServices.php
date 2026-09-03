@@ -161,11 +161,13 @@ class StoreOrderTakeServices extends BaseServices
                 event('NoticeListener', [['order' => $order, 'storeTitle' => $storeTitle], 'order_take']);
                 //收货给客服发送消息
                 event('NoticeListener', [['order' => $order, 'storeTitle' => $storeTitle], 'send_admin_confirm_take_over']);
-                //自定义消息-订单收货
-                $order['storeTitle'] = $storeTitle;
-                $order['time'] = date('Y-m-d H:i:s');
-                $order['phone'] = $order['user_phone'];
-                event('CustomNoticeListener', [$order['uid'], $order, 'order_take']);
+                //自定义消息-订单收货。StoreOrder 使用重载属性，不能直接给数组下标赋值。
+                //复制成数组后再补充通知字段，避免“Indirect modification of overloaded element”警告。
+                $noticeOrder = is_object($order) ? $order->toArray() : (array)$order;
+                $noticeOrder['storeTitle'] = $storeTitle;
+                $noticeOrder['time'] = date('Y-m-d H:i:s');
+                $noticeOrder['phone'] = $order['user_phone'];
+                event('CustomNoticeListener', [$noticeOrder['uid'], $noticeOrder, 'order_take']);
 
                 //自定义事件-订单收货/核销
                 event('CustomEventListener', ['order_take', [

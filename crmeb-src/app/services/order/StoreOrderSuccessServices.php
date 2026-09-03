@@ -77,18 +77,12 @@ class StoreOrderSuccessServices extends BaseServices
         $orderInfoServices = app()->make(StoreOrderCartInfoServices::class);
         $orderInfo['storeName'] = $orderInfoServices->getCarIdByProductTitle((int)$orderInfo['id']);
         $res1 = $this->dao->update($orderInfo['id'], $updata);
-        // 3D打印改造：支付成功后定制订单进入排队，成品/秒杀直接待取并生成取件码
-        if ($res1) {
+        // 3D打印改造：支付成功后只有定制订单进入打印队列。
+        // 普通成品/秒杀订单必须遵循下单时选择的配送方式：快递保持待发货，
+        // 到店自提保持待核销；核销码由下单服务按普通订单规则生成，不在这里覆盖。
+        if ($res1 && (($orderInfo['is_print'] ?? 0) == 1)) {
             $printQueueServices = app()->make(\app\services\printqueue\PrintQueueServices::class);
-            if (($orderInfo['is_print'] ?? 0) == 1) {
-                $printQueueServices->enqueue($orderInfo);
-            } else {
-                $this->dao->update($orderInfo['id'], [
-                    'status' => 1,
-                    'pickup_at' => time(),
-                    'verify_code' => $printQueueServices->generateVerifyCode()
-                ]);
-            }
+            $printQueueServices->enqueue($orderInfo);
         }
         $resPink = true;
         if ($orderInfo['combination_id'] && $res1 && !$orderInfo['refund_status']) {

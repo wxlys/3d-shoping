@@ -156,7 +156,14 @@
 					</view>
 				</view>
 				<!-- <view class="writeOff" v-if="orderInfo.shipping_type == 2 && orderInfo.paid"> -->
-				<view class="writeOff" v-if="orderInfo.verify_code && orderInfo.paid == 1">
+				<view
+					class="writeOff"
+					v-if="
+						orderInfo.verify_code &&
+						orderInfo.paid == 1 &&
+						(orderInfo.is_print == 1 || orderInfo.shipping_type == 2 || orderInfo.delivery_type == 'send')
+					"
+				>
 					<view class="title">{{ $t(`核销信息`) }}</view>
 					<view class="grayBg">
 						<view class="written" v-if="orderInfo.status == 2">
