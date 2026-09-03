@@ -257,7 +257,7 @@ class PrintInquiryServices
             throw new ApiException('模型文件尚未通过校验');
         }
         if ((int)$file['inquiry_id'] > 0 || (int)($file['order_id'] ?? 0) > 0) {
-            // 已取消/已过期询价，或已退款/已取消订单，可以解除旧绑定后再次询价。
+            // 询价任务已确认、已取消或已过期，或关联订单已退款/已取消，可以解除旧绑定后再次询价。
             if (!$this->releaseFileBindingIfReusable($file)) {
                 throw new ApiException('该模型文件已提交过询价，请重新上传文件');
             }
@@ -318,25 +318,31 @@ class PrintInquiryServices
     }
 
     /**
-     * 对历史数据做兼容：只有终态询价或已退款/已取消订单才允许解除绑定。
+     * 对历史数据做兼容：询价任务已完成（已确认）、已取消或已过期，
+     * 或关联订单已退款/已取消时，允许解除绑定后再次询价。
      */
     protected function releaseFileBindingIfReusable(array $file): bool
     {
         $inquiryId = (int)($file['inquiry_id'] ?? 0);
         $orderId = (int)($file['order_id'] ?? 0);
-        $inquiryTerminal = $inquiryId <= 0;
         if ($inquiryId > 0) {
             $inquiry = Db::name('inquiry')->where('id', $inquiryId)->field('id,status,order_id')->find();
-            if (!$inquiry) {
-                $inquiryTerminal = true;
-            } else {
-                $inquiryTerminal = in_array((int)$inquiry['status'], [self::STATUS_EXPIRED, self::STATUS_CANCEL], true);
-                if ($orderId <= 0) {
-                    $orderId = (int)($inquiry['order_id'] ?? 0);
+            if ($inquiry) {
+                // “已确认”表示本次询价任务已完成，不必等待后续打印订单收货完成。
+                $inquiryReusable = in_array((int)$inquiry['status'], [self::STATUS_CONFIRMED, self::STATUS_EXPIRED, self::STATUS_CANCEL], true);
+                if (!$inquiryReusable) {
+                    return false;
                 }
+                $released = Db::name('print_file')->where('id', (int)$file['id'])->update([
+                    'inquiry_id' => 0,
+                    'order_id' => 0,
+                    'update_time' => time(),
+                ]);
+                return false !== $released;
             }
         }
 
+        // 历史数据可能只保留订单绑定，此时仍要求订单本身已进入终态。
         $orderTerminal = $orderId <= 0;
         if ($orderId > 0) {
             $order = Db::name('store_order')->where('id', $orderId)->field('refund_status,refund_type,status,is_cancel')->find();
@@ -346,11 +352,7 @@ class PrintInquiryServices
                 || (int)($order['is_cancel'] ?? 0) === 1;
         }
 
-        // 订单仍在退款申请或制作流程中时，不能提前复用同一文件。
-        if ($orderId > 0 && !$orderTerminal) {
-            return false;
-        }
-        if (!$inquiryTerminal && $orderId <= 0) {
+        if ($orderId <= 0 || !$orderTerminal) {
             return false;
         }
 
