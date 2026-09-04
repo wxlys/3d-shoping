@@ -1,6 +1,8 @@
 -- 3D打印改版阶段6：合并并启用周期维护任务。
 -- 每5分钟执行：询价报价过期、待评价超时自动完成、未引用模型文件清理。
 
+SET NAMES utf8mb4;
+
 UPDATE `eb_system_timer`
 SET `name` = '3D打印业务维护',
     `mark` = 'printMaintenance',
