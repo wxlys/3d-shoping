@@ -87,15 +87,6 @@
             <emptyPage title="暂无商品，去看点别的吧～"></emptyPage>
           </view>
         </view>
-        <couponWindow
-          :window="isCouponShow"
-          @onColse="couponClose"
-          :couponImage="couponObj.image"
-          :couponList="couponObj.list"
-        ></couponWindow>
-        <view class="">
-          {{ site_config }}
-        </view>
         <!-- #ifndef APP-PLUS -->
         <view
           v-if="configData && configData.record_No"
@@ -126,8 +117,7 @@
 <script>
 const app = getApp();
 import colors from "@/mixins/color";
-import couponWindow from "@/components/couponWindow/index";
-import { getCouponV2, getCouponNewUser, getCrmebCopyRight } from "@/api/api.js";
+import { getCrmebCopyRight } from "@/api/api.js";
 import { getShare } from "@/api/public.js";
 import waterfallsFlow from "@/components/WaterfallsFlow/WaterfallsFlow.vue";
 import emptyPage from "@/components/emptyPage.vue";
@@ -177,7 +167,6 @@ export default {
   components: {
     PageDesign,
     Loading,
-    couponWindow,
     waterfallsFlow,
     emptyPage,
     // #ifdef APP
@@ -194,11 +183,6 @@ export default {
       limit: this.$config.LIMIT,
       numConfig: 0,
       code: "",
-      isCouponShow: false,
-      couponObj: {},
-      couponObjs: {
-        show: false,
-      },
       shareInfo: {},
       sortList: "",
       sortAll: [],
@@ -216,7 +200,6 @@ export default {
       // #ifdef H5
       isFixed: false,
       // #endif
-      site_config: "",
       errorNetwork: false, // 是否断网
       isHeaderSerch: false,
       showHomeComb: false,
@@ -337,28 +320,9 @@ export default {
     // 清除监听
     uni.$off("activeFn");
   },
-  watch: {
-    isLogin: {
-      deep: true, //深度监听设置为 true
-      handler: function (newV, oldV) {
-        // 优惠券弹窗
-        var newDates = new Date().toLocaleDateString();
-        if (newV) {
-          try {
-            var oldDate = uni.getStorageSync("oldDate") || "";
-          } catch {}
-          if (oldDate != newDates) {
-            this.getCoupon();
-          }
-        }
-      },
-    },
-  },
   onShow() {
     uni.removeStorageSync("form_type_cart");
-    // 优惠券弹窗
     if (this.isLogin) {
-      this.getCoupon();
       this.getCartNum();
     }
     // #ifdef MP
@@ -571,50 +535,6 @@ export default {
         this.goodPage++;
         this.goodList = this.goodList.concat(res.data);
       });
-    },
-    // 新用户优惠券
-    getNewCoupon() {
-      const oldUser = uni.getStorageSync("oldUser") || 0;
-      if (!oldUser) {
-        getCouponNewUser().then((res) => {
-          const { data } = res;
-          if (data.show) {
-            if (data.list.length) {
-              this.isCouponShow = true;
-              this.couponObj = data;
-              uni.setStorageSync("oldUser", 1);
-            }
-          } else {
-            uni.setStorageSync("oldUser", 1);
-          }
-        });
-      }
-    },
-    // 优惠券弹窗
-    getCoupon() {
-      const tagDate = uni.getStorageSync("tagDate") || "",
-        nowDate = new Date().toLocaleDateString();
-      if (tagDate === nowDate) {
-        this.getNewCoupon();
-      } else {
-        getCouponV2().then((res) => {
-          const { data } = res;
-          if (data.list.length) {
-            this.isCouponShow = true;
-            this.couponObj = data;
-            uni.setStorageSync("tagDate", new Date().toLocaleDateString());
-          } else {
-            this.getNewCoupon();
-          }
-        });
-      }
-    },
-    // 优惠券弹窗关闭
-    couponClose() {
-      this.isCouponShow = false;
-      if (!uni.getStorageSync("oldUser")) {
-        this.getNewCoupon();
-      }
     },
     onLoadFun() {
       this.isShowAuth = false;
