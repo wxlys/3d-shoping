@@ -443,14 +443,17 @@
 						</view>
 					</view>
 				</view>
-				<view class="wrapper" v-else-if="orderInfo.delivery_type == 'fictitious'">
-					<view class="item acea-row row-between">
-						<view>{{ $t(`虚拟发货`) }}：</view>
-						<view class="conter">{{ $t(`已发货，请注意查收`) }}</view>
-					</view>
+                    <view
+                        class="wrapper"
+                        v-else-if="orderInfo.delivery_type == 'pickup' || (orderInfo.delivery_type == 'fictitious' && orderInfo.virtual_type == 0)"
+                    >
+                        <view class="item acea-row row-between">
+                            <view>{{ $t(`配送方式`) }}：</view>
+                            <view class="conter">{{ $t(`到店自取`) }}</view>
+                        </view>
 
-					<view class="item acea-row row-between" v-if="orderInfo.fictitious_content">
-						<view>{{ $t(`虚拟备注`) }}：</view>
+                        <view class="item acea-row row-between" v-if="orderInfo.fictitious_content">
+                            <view>{{ $t(`自取地点`) }}：</view>
 						<view class="conter acea-row row-middle row-right">
 							<text>{{ orderInfo.fictitious_content }}</text>
 							<view class="copy" @click="copyText(orderInfo.fictitious_content)">{{ $t(`复制`) }}</view>

@@ -228,15 +228,23 @@ class StoreOrderDeliveryServices extends BaseServices
     }
 
     /**
-     * 虚拟发货
+     * 到店自取
      * @param int $id
      * @param array $data
      */
-    public function orderVirtualDelivery(int $id, array $data)
+    public function orderPickupDelivery(int $id, array $data)
     {
-        $data['delivery_type'] = 'fictitious';
+        $pickupLocation = trim((string)($data['fictitious_content'] ?? ''));
+        if ($pickupLocation === '') {
+            throw new AdminException('请填写自取地点');
+        }
+        $data['delivery_type'] = 'pickup';
+        $data['delivery_name'] = '到店自取';
+        $data['delivery_id'] = '';
+        $data['fictitious_content'] = $pickupLocation;
+        $data['shipping_type'] = 1;
         $data['status'] = 1;
-        unset($data['sh_delivery_name'], $data['sh_delivery_id'], $data['delivery_name'], $data['delivery_id']);
+        unset($data['sh_delivery_name'], $data['sh_delivery_id'], $data['sh_delivery_uid']);
         //保存信息
         /** @var StoreOrderStatusServices $services */
         $services = app()->make(StoreOrderStatusServices::class);
@@ -244,8 +252,8 @@ class StoreOrderDeliveryServices extends BaseServices
             $this->dao->update($id, $data);
             $services->save([
                 'oid' => $id,
-                'change_type' => 'delivery_fictitious',
-                'change_message' => '已虚拟发货',
+                'change_type' => 'delivery_pickup',
+                'change_message' => '已设置到店自取，自取地点：' . $data['fictitious_content'],
                 'change_time' => time()
             ]);
         });
@@ -275,6 +283,15 @@ class StoreOrderDeliveryServices extends BaseServices
                 $f[] = Form::select('delivery_code', '快递公司', (string)$orderInfo->getData('delivery_code'))->setOptions($expressServices->expressSelectForm(['is_show' => 1]))->required('请选择快递公司')->filterable(true);
                 $f[] = Form::input('delivery_id', '快递单号', $orderInfo->getData('delivery_id'))->required('请填写快递单号');
                 break;
+            case 'pickup':
+                $f[] = Form::input('fictitious_content', '自取地点', $orderInfo->getData('fictitious_content'))->required('请填写自取地点');
+                break;
+            case 'fictitious':
+                if ((int)$orderInfo->getData('virtual_type') === 0) {
+                    $f[] = Form::input('fictitious_content', '自取地点', $orderInfo->getData('fictitious_content'))->required('请填写自取地点');
+                    break;
+                }
+                throw new AdminException('虚拟商品无需修改发货信息');
             default:
                 throw new AdminException('订单尚未发货，请使用“发货”操作填写配送信息');
         }
@@ -317,8 +334,22 @@ class StoreOrderDeliveryServices extends BaseServices
                     throw new AdminException('请核对快递公司编码');
                 }
                 break;
+            case 'pickup':
+                $data['fictitious_content'] = trim((string)($data['fictitious_content'] ?? ''));
+                if ($data['fictitious_content'] === '') {
+                    throw new AdminException('请填写自取地点');
+                }
+                $data = ['fictitious_content' => $data['fictitious_content']];
+                break;
             case 'fictitious':
-                throw new AdminException('虚拟发货，无需修改发货信息');
+                if ((int)$order->getData('virtual_type') !== 0) {
+                    throw new AdminException('虚拟商品无需修改发货信息');
+                }
+                $data['fictitious_content'] = trim((string)($data['fictitious_content'] ?? ''));
+                if ($data['fictitious_content'] === '') {
+                    throw new AdminException('请填写自取地点');
+                }
+                $data = ['delivery_type' => 'pickup', 'delivery_name' => '到店自取', 'fictitious_content' => $data['fictitious_content']];
                 break;
             default:
                 throw new AdminException('订单尚未发货，请使用“发货”操作填写配送信息');
@@ -326,10 +357,13 @@ class StoreOrderDeliveryServices extends BaseServices
         }
         /** @var StoreOrderStatusServices $statusService */
         $statusService = app()->make(StoreOrderStatusServices::class);
+        $changeMessage = in_array($order['delivery_type'], ['pickup', 'fictitious'], true)
+            ? '修改自取地点为：' . $data['fictitious_content']
+            : '修改发货信息为' . $data['delivery_name'] . '号' . $data['delivery_id'];
         $statusService->save([
             'oid' => $id,
             'change_type' => 'distribution',
-            'change_message' => '修改发货信息为' . $data['delivery_name'] . '号' . $data['delivery_id'],
+            'change_message' => $changeMessage,
             'change_time' => time()
         ]);
         return $this->dao->update($id, $data);
@@ -498,8 +532,10 @@ class StoreOrderDeliveryServices extends BaseServices
                 $noticeOrderInfo['phone'] = $orderInfo['user_phone'];
                 event('CustomNoticeListener', [$noticeOrderInfo['uid'], $noticeOrderInfo, 'order_send_success']);
                 break;
-            case 3://虚拟发货
-                $this->orderVirtualDelivery($id, $data, $orderInfo, $storeName);
+            case 3://到店自取
+                $data['delivery_name'] = '到店自取';
+                $data['delivery_id'] = '';
+                $this->orderPickupDelivery($id, $data);
                 break;
             default:
                 throw new AdminException('暂时不支持其他发货类型');
@@ -511,7 +547,9 @@ class StoreOrderDeliveryServices extends BaseServices
             $data['delivery_id'] = uniqid();
         }
         // 小程序订单管理
-        event('OrderShippingListener', ['product', $orderInfo, $type, $data['delivery_id'], $data['delivery_name']]);
+        // 微信小程序发货管理中 4 代表用户自提，避免到店自取被上报为虚拟发货（3）。
+        $miniDeliveryType = $type === 3 ? 4 : $type;
+        event('OrderShippingListener', ['product', $orderInfo, $miniDeliveryType, $data['delivery_id'], $data['delivery_name']]);
         //到期自动收货
         event('OrderDeliveryListener', [$orderInfo, $storeName, $data, $type]);
 

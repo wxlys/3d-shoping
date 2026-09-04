@@ -250,7 +250,7 @@ class StoreOrderController
             ['sh_delivery_id', ''],//送货人电话
             ['sh_delivery_uid', ''],//送货人ID
 
-            ['fictitious_content', ''],//虚拟发货内容
+            ['fictitious_content', ''],//到店自取地点
             ['pickup_time', []]
         ]);
         $services->delivery((int)$id, $data);

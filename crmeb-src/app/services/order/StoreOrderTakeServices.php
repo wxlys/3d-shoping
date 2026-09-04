@@ -659,7 +659,7 @@ class StoreOrderTakeServices extends BaseServices
             'is_del' => 0,
             'paid' => 1,
             'status' => 1,
-            'change_type' => ['delivery_goods', 'delivery_fictitious', 'delivery']
+            'change_type' => ['delivery_goods', 'delivery_pickup', 'delivery_fictitious', 'delivery']
         ]);
         foreach ($orderList as $order) {
             if ($order['status'] == 2) {

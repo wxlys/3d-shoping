@@ -34,7 +34,7 @@
         <el-radio-group v-model="formItem.type" @input="changeRadio">
           <el-radio label="1" v-if="virtual_type !== 3">发货</el-radio>
           <el-radio label="2" v-if="virtual_type !== 3">送货</el-radio>
-          <el-radio label="3">无需配送</el-radio>
+          <el-radio label="3">到店自取</el-radio>
         </el-radio-group>
       </el-form-item>
       <el-form-item v-if="formItem.type == 1" label="发货类型：">
@@ -158,12 +158,12 @@
         </el-form-item>
       </div>
       <div v-show="formItem.type === '3'">
-        <el-form-item label="备注：">
+        <el-form-item label="自取地点：">
           <el-input
             v-model="formItem.fictitious_content"
             type="textarea"
             :autosize="{ minRows: 2, maxRows: 5 }"
-            placeholder="备注"
+            placeholder="请输入用户到店取件的详细地点"
             style="width: 60%"
           ></el-input>
         </el-form-item>
@@ -519,6 +519,9 @@ export default {
         if (this.formItem.sh_delivery === '') {
           return this.$message.error('送货人不能为空');
         }
+      }
+      if (this.formItem.type === '3' && this.formItem.fictitious_content.trim() === '') {
+        return this.$message.error('自取地点不能为空');
       }
       if (this.splitSwitch) {
         data.datas.cart_ids = [];

@@ -210,7 +210,7 @@
         v-model="fictitious_content"
         class="textarea"
         @blur="bindTextAreaBlur"
-        placeholder="备注"
+        placeholder="请输入用户到店取件的详细地点"
         :maxlength="500"
         auto-height
       />
@@ -271,8 +271,8 @@ export default {
           show: true,
         },
         {
-          type: "fictitious",
-          title: "无需物流",
+          type: "pickup",
+          title: "到店自取",
           key: 3,
           show: true,
         },
@@ -568,6 +568,11 @@ export default {
         }
       }
       if (delivery_type == 3) {
+        if (!that.fictitious_content.trim()) {
+          return this.$util.Tips({
+            title: "请填写自取地点",
+          });
+        }
         let params = {};
         params.type = that.delivery_type;
         params.fictitious_content = that.fictitious_content;

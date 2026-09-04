@@ -76,6 +76,7 @@ class StoreOrderServices extends BaseServices
     public $deliveryType = [
         'send' => '商家配送',
         'express' => '快递配送',
+        'pickup' => '到店自取',
         'fictitious' => '虚拟发货',
         'delivery_part_split' => '拆分部分发货',
         'delivery_split' => '拆分发货完成'
@@ -286,6 +287,11 @@ class StoreOrderServices extends BaseServices
                     $status['_title'] = '待收货';
                     $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_goods'], 'change_time')) . '服务商已发货';
                     $status['_class'] = 'state-ysh';
+                } elseif ($order['delivery_type'] == 'pickup' || ($order['delivery_type'] == 'fictitious' && (int)($order['virtual_type'] ?? 0) === 0)) {
+                    $status['_type'] = 1;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = '商品已备好，请前往' . ($order['fictitious_content'] ?: '商家指定地点') . '自取';
+                    $status['_class'] = 'state-ysh';
                 } elseif ($order['delivery_type'] == 'split') {//拆分发货
                     $status['_type'] = 1;
                     $status['_title'] = '待收货';
@@ -383,6 +389,11 @@ class StoreOrderServices extends BaseServices
                     $status['_title'] = '待收货';
                     $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_goods'], 'change_time')) . '服务商已发货';
                     $status['_class'] = 'state-ysh';
+                } elseif ($order['delivery_type'] == 'pickup' || ($order['delivery_type'] == 'fictitious' && (int)($order['virtual_type'] ?? 0) === 0)) {
+                    $status['_type'] = 2;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = '商品已备好，请前往' . ($order['fictitious_content'] ?: '商家指定地点') . '自取';
+                    $status['_class'] = 'state-ysh';
                 } elseif ($order['delivery_type'] == 'split') {//拆分发货
                     $status['_type'] = 2;
                     $status['_title'] = '待收货';
@@ -476,12 +487,14 @@ class StoreOrderServices extends BaseServices
             }
         }
         // 状态文案覆盖后仍保留订单详情依赖的支付方式和配送方式字段。
+        $statusInfo = (array)($order['_status'] ?? []);
         if (isset($order['pay_type'])) {
-            $order['_status']['_payType'] = $order['_status']['_type'] == 0 ? '' : (PayServices::PAY_TYPE[$order['pay_type']] ?? '其他方式');
+            $statusInfo['_payType'] = ($statusInfo['_type'] ?? 0) == 0 ? '' : (PayServices::PAY_TYPE[$order['pay_type']] ?? '其他方式');
         }
         if (isset($order['delivery_type'])) {
-            $order['_status']['_deliveryType'] = $this->deliveryType[$order['delivery_type']] ?? '其他方式';
+            $statusInfo['_deliveryType'] = $this->deliveryType[$order['delivery_type']] ?? '其他方式';
         }
+        $order['_status'] = $statusInfo;
         if ($order['is_print'] == 1 && in_array($order['queue_status'], [1, 2])) {
             $printQueue = Db::name('print_queue')->where('order_id', (int)$order['id'])->where('is_del', 0)->find();
             if ($printQueue) {
@@ -535,6 +548,8 @@ class StoreOrderServices extends BaseServices
             $delivery = date('Y-m-d', $log['delivery']);
         } elseif (isset($log['delivery_goods'])) {
             $delivery = date('Y-m-d', $log['delivery_goods']);
+        } elseif (isset($log['delivery_pickup'])) {
+            $delivery = date('Y-m-d', $log['delivery_pickup']);
         } elseif (isset($log['delivery_fictitious'])) {
             $delivery = date('Y-m-d', $log['delivery_fictitious']);
         } else {

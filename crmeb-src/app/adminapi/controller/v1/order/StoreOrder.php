@@ -324,7 +324,7 @@ class StoreOrder extends AuthController
             ['sh_delivery_id', ''],//送货人电话
             ['sh_delivery_uid', ''],//送货人ID
 
-            ['fictitious_content', ''],//虚拟发货内容
+            ['fictitious_content', ''],//到店自取地点
 
             ['day_type', 0], //顺丰传 0今天，1明天，2后台
             ['pickup_time', []],//开始时间 9:00，结束时间 10:00  开始时间和结束时间之间不能小于一个小时
@@ -359,7 +359,7 @@ class StoreOrder extends AuthController
             ['sh_delivery_id', ''],//送货人电话
             ['sh_delivery_uid', ''],//送货人ID
 
-            ['fictitious_content', ''],//虚拟发货内容
+            ['fictitious_content', ''],//到店自取地点
 
             ['cart_ids', []],
 
@@ -707,7 +707,7 @@ class StoreOrder extends AuthController
      */
     public function update_distribution(StoreOrderDeliveryServices $services, $id)
     {
-        $data = $this->request->postMore([['delivery_name', ''], ['delivery_code', ''], ['delivery_id', '']]);
+        $data = $this->request->postMore([['delivery_name', ''], ['delivery_code', ''], ['delivery_id', ''], ['fictitious_content', '']]);
         if (!$id) return app('json')->fail('参数错误');
         $services->updateDistribution($id, $data);
         return app('json')->success('操作成功');
