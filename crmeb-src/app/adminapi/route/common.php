@@ -18,6 +18,7 @@ Route::group(function () {
     Route::get('backup/download', 'v1.system.SystemDatabackup/downloadFile')->option(['real_name' => '下载表备份记录']);
     //首页统计数据
     Route::get('home/header', 'Common/homeStatics')->option(['real_name' => '首页统计数据']);
+    Route::get('home/print_stats', 'Common/homePrintStats')->option(['real_name' => '3D打印业务统计']);
     //首页订单图表
     Route::get('home/order', 'Common/orderChart')->option(['real_name' => '首页订单图表']);
     //首页用户图表
@@ -50,4 +51,3 @@ Route::group(function () {
     \app\adminapi\middleware\AdminCheckRoleMiddleware::class,
     \app\adminapi\middleware\AdminLogMiddleware::class
 ])->option(['mark' => 'common', 'mark_name' => '系统数据']);
-

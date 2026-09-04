@@ -24,6 +24,7 @@ use app\services\user\UserServices;
 use crmeb\services\CacheService;
 use crmeb\services\HttpService;
 use think\facade\Config;
+use think\facade\Db;
 
 /**
  * 公共接口基类 主要存放公共接口
@@ -136,6 +137,80 @@ class Common extends AuthController
         $orderServices = app()->make(StoreOrderServices::class);
         $info = $orderServices->homeStatics();
         return app('json')->success(compact('info'));
+    }
+
+    /**
+     * 3D 打印业务工作台统计。
+     *
+     * 原商城首页统计包含会员、充值、佣金等与本项目无关的口径，
+     * 工作台改为只读取成品订单、定制订单、询价和打印队列数据。
+     * @return mixed
+     */
+    public function homePrintStats()
+    {
+        $now = time();
+        $todayStart = strtotime(date('Y-m-d 00:00:00', $now));
+        $baseOrder = function () {
+            return Db::name('store_order')
+                ->where('is_del', 0)
+                ->where('pid', 0);
+        };
+        $paidOrder = function () use ($baseOrder) {
+            return $baseOrder()
+                ->where('paid', 1)
+                ->whereIn('refund_status', [0, 3]);
+        };
+
+        $last7 = [];
+        for ($offset = 6; $offset >= 0; $offset--) {
+            $start = $todayStart - $offset * 86400;
+            $end = $start + 86400;
+            $orders = (clone $paidOrder())->where('pay_time', '>=', $start)->where('pay_time', '<', $end);
+            $last7[] = [
+                'date' => date('m-d', $start),
+                'orders' => (int)(clone $orders)->count(),
+                'sales' => round((float)(clone $orders)->sum('pay_price'), 2),
+            ];
+        }
+
+        $todayOrders = (clone $paidOrder())->where('pay_time', '>=', $todayStart)->where('pay_time', '<', $todayStart + 86400)->count();
+        $todaySales = (clone $paidOrder())->where('pay_time', '>=', $todayStart)->where('pay_time', '<', $todayStart + 86400)->sum('pay_price');
+        $inquiry = Db::name('inquiry')->where('is_del', 0);
+        $queue = Db::name('print_queue')->where('is_del', 0);
+        $activePrintOrders = (clone $paidOrder())->where('is_print', 1);
+        $stockWarning = (int)sys_config('store_stock', 0);
+        if ($stockWarning <= 0) $stockWarning = 2;
+        /** @var StoreProductServices $storeProductServices */
+        $storeProductServices = app()->make(StoreProductServices::class);
+
+        return app('json')->success([
+            'today' => [
+                'orders' => (int)$todayOrders,
+                'sales' => round((float)$todaySales, 2),
+            ],
+            'last7' => $last7,
+            'orders' => [
+                'pending_payment' => (int)(clone $baseOrder())->where('paid', 0)->where('status', 0)->count(),
+                'pending_ship' => (int)(clone $paidOrder())->where('is_print', 0)->where('status', 0)->count(),
+                'pending_receive' => (int)(clone $paidOrder())->where('is_print', 0)->where('status', 1)->count(),
+                'pending_evaluation' => (int)(clone $paidOrder())->where('status', 2)->count(),
+                'completed' => (int)(clone $paidOrder())->where('status', 3)->count(),
+            ],
+            'print' => [
+                'queue' => (int)(clone $queue)->where('status', 1)->count(),
+                'printing' => (int)(clone $queue)->where('status', 2)->count(),
+                'ready_pickup' => (int)(clone $activePrintOrders)->where('queue_status', 3)->where('status', 1)->count(),
+            ],
+            'inquiry' => [
+                'pending_quote' => (int)(clone $inquiry)->where('status', 1)->count(),
+                'quoted' => (int)(clone $inquiry)->where('status', 2)->count(),
+            ],
+            'alerts' => [
+                'refund_pending' => (int)(clone $baseOrder())->where('refund_status', 1)->count(),
+                'inventory_warning' => (int)$storeProductServices->getCount(['type' => 5, 'store_stock' => $stockWarning]),
+            ],
+            'generated_at' => $now,
+        ]);
     }
 
     /**

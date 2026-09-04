@@ -3,33 +3,25 @@
     <!-- <div class="open-image" v-db-click @click="clear" v-if="openImage">
       <img src="@/assets/images/wechat_demo.png" alt="" />
     </div> -->
-    <!--头部-->
-    <base-info ref="baseInfo" />
     <!--小方块-->
     <grid-menu v-if="userInfo.level == 0" />
-    <!--订单统计-->
-    <visit-chart ref="visitChart" />
-    <!--用户-->
-    <user-chart ref="userChart" />
+    <!--3D打印业务统计-->
+    <print-dashboard />
     <!--版本升级-->
     <!-- <upgrade v-if="force_reminder == 1" /> -->
   </div>
 </template>
 
 <script>
-import baseInfo from './components/baseInfo';
 import gridMenu from './components/gridMenu';
-import visitChart from './components/visitChart';
-import userChart from './components/userChart';
+import printDashboard from './components/printDashboard';
 import { auth } from '@/api/system';
 import { mapState } from 'vuex';
 export default {
   name: 'index',
   components: {
-    baseInfo,
     gridMenu,
-    visitChart,
-    userChart,
+    printDashboard,
   },
   data() {
     return {

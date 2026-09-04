@@ -115,19 +115,17 @@ class SystemRoleServices extends BaseServices
             return $allAuth;
         });
 
-        // 权限菜单未添加时放行
-        if (!in_array($rule, $allAuth[$method])) return true;
-
-        // 如果是crud接口放行
-        if (strpos($rule, 'crud/') === 0) return true;
+        // 未注册为权限接口的公共路由保持兼容；已注册接口必须通过角色授权。
+        // 这里不能再把 crud 或其它后台接口一律放行，否则隐藏菜单仍可被直接调用。
+        if (!in_array($rule, $allAuth[$method] ?? [], true)) return true;
 
         // 获取管理员的接口权限列表，存在时放行
         $auth = $this->getRolesByAuth($request->adminInfo()['roles'], 2);
-        if (isset($auth[$method]) && in_array($rule, $auth[$method])) {
-            return true;
-        } else {
+        if (isset($auth[$method]) && in_array($rule, $auth[$method], true)) {
             return true;
         }
+
+        throw new AuthException('无权限访问');
     }
 
     /**

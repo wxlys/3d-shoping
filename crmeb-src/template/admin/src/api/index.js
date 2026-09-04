@@ -20,6 +20,16 @@ export function headerApi() {
 }
 
 /**
+ * 3D 打印业务工作台统计
+ */
+export function printStatsApi() {
+  return request({
+    url: 'home/print_stats',
+    method: 'get',
+  });
+}
+
+/**
  * @description 首页订单图表
  */
 export function orderApi(params) {
