@@ -602,6 +602,18 @@ class StoreProductServices extends BaseServices
     public function save(int $id, array $data)
     {
         $data['product_type'] = in_array((int)($data['product_type'] ?? 0), [0, 1]) ? (int)$data['product_type'] : 0;
+        // 业务收敛：商品只允许实体成品和定制打印，旧商城营销字段统一归零。
+        // 这里在服务层再次约束，避免旧版后台、缓存或第三方调用绕过前端限制。
+        $data['virtual_type'] = 0;
+        $data['is_virtual'] = 0;
+        $data['give_integral'] = 0;
+        $data['coupon_ids'] = [];
+        $data['vip_product'] = 0;
+        $data['vip_product_type'] = 0;
+        $data['is_sub'] = [];
+        $data['presale'] = 0;
+        $data['presale_time'] = [];
+        $data['presale_day'] = 0;
         if (count($data['cate_id']) < 1) throw new AdminException('请选择商品分类');
         if (!$data['store_name']) throw new AdminException('请输入商品名称');
         if (count($data['slider_image']) < 1) throw new AdminException('请选择商品轮播图');
@@ -629,7 +641,7 @@ class StoreProductServices extends BaseServices
             if (!in_array($data['limit_type'], [1, 2])) throw new AdminException('请选择限购类型');
             if ($data['limit_num'] <= 0) throw new AdminException('限购数量不能小于1');
         }
-        $data['is_virtual'] = in_array($data['virtual_type'], [1, 2]) > 0 ? 1 : 0;
+        $data['is_virtual'] = 0;
         $data['logistics'] = implode(',', $data['logistics']);
         $data['custom_form'] = json_encode($data['custom_form']);
         $data['params_list'] = json_encode($data['params_list']);
@@ -645,13 +657,12 @@ class StoreProductServices extends BaseServices
             $data[$item] = 1;
         }
         foreach ($detail as &$item) {
-            if ($data['is_sub'] == 0) {
-                $item['brokerage'] = 0;
-                $item['brokerage_two'] = 0;
-            }
-            if (($item['brokerage'] + $item['brokerage_two']) > $item['price']) {
-                throw new AdminException('一二级返佣相加不能大于商品售价');
-            }
+            $item['brokerage'] = 0;
+            $item['brokerage_two'] = 0;
+            $item['vip_price'] = 0;
+            $item['vip_proportion'] = 0;
+            $item['coupon_id'] = 0;
+            $item['virtual_list'] = [];
             if (isset($item['detail'])) {
                 foreach ($item['detail'] as $detail_k => $detail_v) {
                     if (preg_match('/[=;]/', $detail_k) === 1 || preg_match('/[=;]/', $detail_v) === 1) {

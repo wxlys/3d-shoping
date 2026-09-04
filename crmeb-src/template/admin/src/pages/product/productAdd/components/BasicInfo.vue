@@ -2,7 +2,7 @@
   <!-- 基础信息 -->
   <el-row :gutter="24">
     <el-col :span="24">
-      <el-form-item label="商品类型：" props="is_virtual">
+      <el-form-item label="商品形态：" props="is_virtual">
         <div
           class="virtual"
           :class="formValidate.virtual_type == item.id ? 'virtual_boder' : 'virtual_boder2'"

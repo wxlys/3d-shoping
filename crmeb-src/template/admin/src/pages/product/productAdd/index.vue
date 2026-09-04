@@ -92,51 +92,25 @@
 
         <!-- 物流设置-->
         <logistics-setting
-          v-show="headTab.length === 7 ? currentTab === '4' : false"
+          v-show="currentTab === '4'"
           :formValidate="formValidate"
           :templateList="templateList"
           @logisticsBtn="logisticsBtn"
           @addTemp="addTemp"
         ></logistics-setting>
 
-        <!-- 会员价/佣金 -->
-        <price-commission
-          v-show="headTab.length === 7 ? currentTab === '5' : currentTab === '4'"
+        <!-- 业务设置 -->
+        <business-setting
+          v-show="currentTab === '5'"
           :formValidate="formValidate"
-          :oneFormValidate="oneFormValidate"
-          :manyFormValidate="manyFormValidate"
-          :columnsInstall="columnsInstall"
-          :columnsInstal2="columnsInstal2"
-          :manyBrokerage.sync="manyBrokerage"
-          :manyBrokerageTwo.sync="manyBrokerageTwo"
-          :manyVipPrice.sync="manyVipPrice"
-          :manyVipDiscount.sync="manyVipDiscount"
-          @checkAllGroupChange="checkAllGroupChange"
-          @changeVipPrice="changeVipPrice"
-          @changeDiscount="changeDiscount"
-          @brokerageSetUp="brokerageSetUp"
-        ></price-commission>
-
-        <!-- 营销设置-->
-        <marketing-setting
-          v-show="headTab.length === 7 ? currentTab === '6' : currentTab === '5'"
-          :formValidate="formValidate"
-          :couponName="couponName"
-          :dataLabel="dataLabel"
           :activity="activity"
-          @handleClose="handleClose"
-          @addCoupon="addCoupon"
-          @openLabel="openLabel"
-          @closeLabel="closeLabel"
-          @addLabel="addLabel"
-          @onchangeTime="onchangeTime"
           @handleRemoveRecommend="handleRemoveRecommend"
           @changeGoods="changeGoods"
-        ></marketing-setting>
+        ></business-setting>
 
         <!-- 其他设置-->
         <other-setting
-          v-show="headTab.length === 7 ? currentTab === '7' : currentTab === '6'"
+          v-show="currentTab === '6'"
           :formValidate="formValidate"
           :customBtn.sync="customBtn"
           :paramsType="paramsType"
@@ -157,14 +131,7 @@
           <el-button v-if="currentTab !== '1'" v-db-click @click="upTab">上一步</el-button>
           <el-button
             class="submission"
-            v-if="currentTab !== '7' && formValidate.virtual_type == 0"
-            v-db-click
-            @click="downTab"
-            >下一步</el-button
-          >
-          <el-button
-            class="submission"
-            v-if="currentTab !== '6' && formValidate.virtual_type != 0"
+            v-if="currentTab !== '6'"
             v-db-click
             @click="downTab"
             >下一步</el-button
@@ -368,8 +335,7 @@ import BasicInfo from './components/BasicInfo.vue';
 import SpecStock from './components/SpecStock.vue';
 import ProductDetail from './components/ProductDetail.vue';
 import LogisticsSetting from './components/LogisticsSetting.vue';
-import PriceCommission from './components/PriceCommission.vue';
-import MarketingSetting from './components/MarketingSetting.vue';
+import BusinessSetting from './components/BusinessSetting.vue';
 import OtherSetting from './components/OtherSetting.vue';
 import { formatRichText } from '@/utils/editorImg';
 
@@ -389,8 +355,7 @@ export default {
     SpecStock,
     ProductDetail,
     LogisticsSetting,
-    PriceCommission,
-    MarketingSetting,
+    BusinessSetting,
     OtherSetting,
   },
   data() {
@@ -403,15 +368,11 @@ export default {
         { tit: '规格库存', name: '2' },
         { tit: '商品详情', name: '3' },
         { tit: '物流设置', name: '4' },
-        { tit: '会员价/佣金', name: '5' },
-        { tit: '营销设置', name: '6' },
-        { tit: '其他设置', name: '7' },
+        { tit: '业务设置', name: '5' },
+        { tit: '其他设置', name: '6' },
       ],
       virtual: [
-        { tit: '普通商品', id: 0, tit2: '物流发货' },
-        { tit: '卡密/网盘', id: 1, tit2: '自动发货' },
-        { tit: '优惠券', id: 2, tit2: '自动发货' },
-        { tit: '虚拟商品', id: 3, tit2: '虚拟发货' },
+        { tit: '实体商品', id: 0, tit2: '快递/到店自取' },
       ],
       seletVideo: 0, //选择视频类型
       customBtn: 0, //自定义留言开关
@@ -544,7 +505,7 @@ export default {
             bar_code_number: '',
           },
         ],
-        activity: ['默认', '秒杀', '砍价', '拼团'],
+        activity: ['默认', '秒杀'],
         couponName: [],
         header: [],
         selectRule: '',
@@ -604,7 +565,7 @@ export default {
       disk_info: '',
       videoLink: '',
       attrs: [],
-      activity: { 默认: 'red', 秒杀: 'blue', 砍价: 'green', 拼团: 'yellow' },
+      activity: { 默认: 'red', 秒杀: 'blue' },
       couponName: [],
       updateIds: [],
       updateName: [],
@@ -864,49 +825,27 @@ export default {
           }
         }
       }
-      // 定义基础商品和虚拟商品的标签页配置
+      // 3D 打印业务只允许实体成品和定制打印两种业务类型。
       const baseHeadTabs = [
         { tit: '基础信息', name: '1' },
         { tit: '规格库存', name: '2' },
         { tit: '商品详情', name: '3' },
         { tit: '物流设置', name: '4' },
-        { tit: '会员价/佣金', name: '5' },
-        { tit: '营销设置', name: '6' },
-        { tit: '其他设置', name: '7' },
-      ];
-      const virtualHeadTabs = [
-        { tit: '基础信息', name: '1' },
-        { tit: '规格库存', name: '2' },
-        { tit: '商品详情', name: '3' },
-        { tit: '会员价/佣金', name: '4' },
-        { tit: '营销设置', name: '5' },
+        { tit: '业务设置', name: '5' },
         { tit: '其他设置', name: '6' },
       ];
 
       switch (index) {
-        case 0: // 普通商品
+        case 0: // 实体商品
           this.formValidate.virtual_type = 0;
           this.formValidate.is_virtual = 0;
           this.headTab = baseHeadTabs;
           break;
-
-        case 1: // 卡密/网盘商品
-          this.formValidate.virtual_type = 1;
-          this.formValidate.postage = 0;
-          this.formValidate.is_virtual = 1;
-          this.headTab = virtualHeadTabs;
-          break;
-
-        case 2: // 优惠券商品
-          this.formValidate.virtual_type = 2;
-          this.formValidate.is_virtual = 1;
-          this.headTab = virtualHeadTabs;
-          break;
-
-        case 3: // 虚拟商品
-          this.formValidate.virtual_type = 3;
-          this.formValidate.is_virtual = 1;
-          this.headTab = virtualHeadTabs;
+        default:
+          this.formValidate.virtual_type = 0;
+          this.formValidate.is_virtual = 0;
+          this.headTab = baseHeadTabs;
+          this.$message.error('当前业务仅支持实体成品和定制打印商品');
           break;
       }
     },
@@ -1961,29 +1900,28 @@ export default {
             // 删除第一项
             item.shift();
           }
+          // 业务收敛：前端即使带有历史缓存字段，也不能把已下线的营销能力写回商品。
+          this.formValidate.virtual_type = 0;
+          this.formValidate.is_virtual = 0;
+          this.formValidate.give_integral = 0;
+          this.formValidate.coupon_ids = [];
+          this.formValidate.vip_product = 0;
+          this.formValidate.vip_product_type = 0;
+          this.formValidate.is_sub = [];
+          this.formValidate.presale = 0;
+          this.formValidate.presale_time = [];
+          this.formValidate.presale_day = 0;
+          item.forEach((sku) => {
+            sku.brokerage = 0;
+            sku.brokerage_two = 0;
+            sku.vip_price = 0;
+            sku.vip_proportion = 0;
+            sku.coupon_id = 0;
+            sku.virtual_list = [];
+          });
           for (let i = 0; i < item.length; i++) {
             if (item[i].stock > 1000000) {
               return this.$message.error('规格库存-库存超出系统范围(1000000)');
-            }
-          }
-          if (this.formValidate.is_sub[0] === 1) {
-            for (let i = 0; i < item.length; i++) {
-              if (item[i].brokerage === null || item[i].brokerage_two === null) {
-                return this.$message.error('营销设置- 一二级返佣不能为空');
-              }
-            }
-          } else {
-            for (let i = 0; i < item.length; i++) {
-              if (item[i].vip_price === null) {
-                return this.$message.error('营销设置-会员价不能为空');
-              }
-            }
-          }
-          if (this.formValidate.is_sub.length === 2) {
-            for (let i = 0; i < item.length; i++) {
-              if (item[i].brokerage === null || item[i].brokerage_two === null || item[i].vip_price === null) {
-                return this.$message.error('营销设置- 一二级返佣和会员价不能为空');
-              }
             }
           }
           if (this.formValidate.freight == 3 && !this.formValidate.temp_id) {

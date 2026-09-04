@@ -10,7 +10,7 @@
           maxlength="100"
           show-word-limit
         />
-        <div class="tips-info">PC端的SEO优化以及可以根据关键字进行商品搜索</div>
+        <div class="tips-info">用于商品搜索和页面展示</div>
       </el-form-item>
     </el-col>
     <el-col :span="24">
@@ -24,7 +24,7 @@
           maxlength="100"
           show-word-limit
         />
-        <div class="tips-info">公众号分享商品以及PC端SEO优化使用</div>
+        <div class="tips-info">用于商品分享和详情页简介展示</div>
       </el-form-item>
     </el-col>
     <el-col :span="24">
@@ -36,7 +36,7 @@
           :rows="3"
           class="content_width"
         />
-        <div class="tips-info">将其他平台的商品口令填写保存，移动端进入商品详情的时候自动复制</div>
+        <div class="tips-info">可填写商品分享时需要展示的补充信息</div>
       </el-form-item>
     </el-col>
 
@@ -51,7 +51,7 @@
             <el-input v-model.trim="formValidate.recommend_image" style="display: none"></el-input>
             <i class="el-icon-picture-outline" style="font-size: 24px"></i>
           </div>
-          <div class="tips-info">移动端分类样式2显示的长方形图片，建议比例：5:2</div>
+          <div class="tips-info">用于分类页商品推荐展示，建议比例：5:2</div>
         </div>
       </el-form-item>
     </el-col>
