@@ -30,7 +30,6 @@
       @bindHeight="bindHeighta"
       @storeTap="storeTap"
       @changeLogin="changeLogin"
-      @changeBarg="changeBarg"
       @goDetail="goDetail"
     ></PageDesign>
     <view class="print-services">
@@ -80,7 +79,6 @@ import colors from "@/mixins/color";
 import pageFooter from "@/components/pageFooter/index.vue";
 import { getCustomer } from "@/utils/index.js";
 import editUserModal from "@/components/eidtUserModal/index.vue";
-import couponWindow from "@/components/couponWindow/index";
 import waterfallsFlow from "@/components/WaterfallsFlow/WaterfallsFlow.vue";
 import emptyPage from "@/components/emptyPage.vue";
 import Loading from "@/components/Loading/index.vue";
@@ -93,7 +91,6 @@ export default {
     pageFooter,
     editUserModal,
     PageDesign,
-    couponWindow,
     waterfallsFlow,
     emptyPage,
     Loading,
@@ -196,8 +193,6 @@ export default {
       goodList: [],
       loaded: false,
       loading: false,
-      isCouponShow: false,
-      couponObj: {},
       site_config: "",
       configData: {},
       isFooter: false,
@@ -331,12 +326,6 @@ export default {
         });
       });
     },
-    couponClose() {
-      this.isCouponShow = false;
-      if (!uni.getStorageSync("oldUser") && this.getNewCoupon) {
-        this.getNewCoupon();
-      }
-    },
     goICP(url) {
       // #ifdef H5
       window.open(url);
@@ -346,15 +335,6 @@ export default {
         url: `/pages/annex/web_view/index?url=${url}`,
       });
       // #endif
-    },
-    changeBarg(item) {
-      if (!this.isLogin) {
-        toLogin();
-      } else {
-        uni.navigateTo({
-          url: `/pages/activity/goods_bargain_details/index?id=${item.id}&spid=${this.$store.state.app.uid}`,
-        });
-      }
     },
     changeLogin() {
       if (!this.isLogin) {

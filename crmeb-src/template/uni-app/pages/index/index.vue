@@ -29,7 +29,6 @@
       @bindHeight="bindHeighta"
       @storeTap="storeTap"
       @changeLogin="changeLogin"
-      @changeBarg="changeBarg"
       @newDataStatus="newDataStatus"
       @reconnect="reconnect"
     >
@@ -691,15 +690,6 @@ export default {
     },
     getIsLogin() {
       toLogin();
-    },
-    changeBarg(item) {
-      if (!this.isLogin) {
-        this.getIsLogin();
-      } else {
-        uni.navigateTo({
-          url: `/pages/activity/goods_bargain_details/index?id=${item.id}&spid=${this.$store.state.app.uid}`,
-        });
-      }
     },
     goDetail(item) {
       goShopDetail(item, this.$store.state.app.uid).then((res) => {

@@ -144,7 +144,7 @@
 			// #endif
 			goDetail() {
 				uni.navigateTo({
-					url: this.from === 'member' ? '/pages/annex/vip_paid/index' : `/pages/goods/order_details/index?order_id=${this.orderId}`
+				url: `/pages/goods/order_details/index?order_id=${this.orderId}`
 				});
 			}
 		}

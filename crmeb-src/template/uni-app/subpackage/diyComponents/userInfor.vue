@@ -7,7 +7,7 @@
           <image
             src="@/static/images/king.png"
             class="king"
-            v-if="diyInfo.is_money_level"
+            v-if="false"
           ></image>
           <image
             v-if="!diyInfo.avatar && isLogin"
@@ -24,7 +24,7 @@
             <view class="nameCon line1">{{ diyInfo.nickname }}</view>
             <view
               class="lable acea-row row-middle"
-              v-if="diyInfo.level > 0 && (diyInfo.vip_icon || diyInfo.vip_name)"
+              v-if="false"
               :style="[lableStyle]"
             >
               <img
@@ -38,7 +38,7 @@
           </view>
           <view
             class="acea-row row-middle"
-            v-if="isLogin && diyInfo.vip && diyInfo.level > 0"
+            v-if="false"
           >
             <view class="progress" :style="[progressStyle]">
               <view class="bg-reds" :style="[bgRedsStyle]"> </view>
@@ -326,7 +326,8 @@ export default {
       mbCongfig: 0,
       prConfig: 0, //背景边距
       itemStyle: 0,
-      checkType: this.dataConfig.checkboxInfo.type,
+      checkType: ((this.dataConfig.checkboxInfo && this.dataConfig.checkboxInfo.type) || [])
+        .filter((id) => [4, 5].includes(Number(id))),
       diyInfo: {},
       currentLevelColor: "",
     };
@@ -388,15 +389,6 @@ export default {
     handleMenu(type) {
       let url = "";
       switch (type) {
-        case 0:
-          url = "/pages/users/user_coupon/index";
-          break;
-        case 1:
-          url = "/pages/users/user_integral/index";
-          break;
-        case 2:
-          url = "/pages/users/user_money/index";
-          break;
         case 4:
           url = "/pages/users/user_goods_collection/index";
           break;

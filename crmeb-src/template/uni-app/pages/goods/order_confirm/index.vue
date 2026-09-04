@@ -2,7 +2,7 @@
 	<view :style="colorStyle">
 		<view class='order-submission'>
 			<view class="allAddress" :style="store_self_mention && is_shipping ? '':'padding-top:10rpx'"
-				v-if="!virtual_type && (!is_gift || is_gift == 2)">
+				v-if="!virtual_type">
 				<view class="nav acea-row">
 					<view class="item font-num" :class="shippingType == 0 ? 'on' : 'on2'" @tap="addressType(0)"
 						v-if='store_self_mention && is_shipping'>
@@ -68,64 +68,8 @@
 					<image src='/static/images/line.jpg'></image>
 				</view>
 			</view>
-			<view v-if="giftData" class="gift-box">
-				<view class="acea-row row-middle user-msg">
-					<image class="avatar mr-12" :src="giftData.avatar" mode=""></image>
-					<text class="nickname">{{ giftData.nickname}} 赠您一份礼物，请查收！</text>
-				</view>
-				<view class="line"></view>
-				<view class="gift-mark" v-if="giftData.gift_mark">
-					{{giftData.gift_mark}}
-				</view>
-			</view>
-			<orderGoods :cartInfo="cartInfo" :is_confirm='true' :is_gift='is_gift' :shipping_type="shippingType"></orderGoods>
-			<view v-if="is_gift == 1" class="gift-msg acea-row row-between-wrapper">
-				<view>{{$t(`好友留言`)}}</view>
-				<view class="discount">
-					<input style="text-align: right;" v-model="gift_mark" type="text" :placeholder="$t(`填写好友留言，最多40字`)"
-						placeholder-class="placeholder"></input>
-				</view>
-			</view>
-			<view class='wrapper' v-if="(!is_gift && is_gift == 2) && shippingType == 1">
-				<view class="item acea-row row-between-wrapper">
-					<view>{{$t(`用户姓名`)}}</view>
-					<view class="discount">
-						<input style="text-align: right;" v-model="contacts" type="text" :placeholder="$t(`请输入姓名`)"
-							placeholder-class="placeholder"></input>
-					</view>
-				</view>
-				<view class="item acea-row row-between-wrapper">
-					<view>{{$t(`联系电话`)}}</view>
-					<view class="discount">
-						<input style="text-align: right;" v-model="contactsTel" type="text" :placeholder="$t(`请输入手机号`)"
-							placeholder-class="placeholder"></input>
-					</view>
-				</view>
-			</view>
-			<view v-if="is_gift == 2" class="receive-btn" @click="receiveGift">
-				立即领取
-			</view>
-			<view class='wrapper' v-if="!is_gift || is_gift == 1">
-				<view class='item acea-row row-between-wrapper' @tap='couponTap'
-					v-if="!pinkId && !BargainId && !combinationId && !seckillId&& !noCoupon && !discountId && !advanceId">
-					<view>{{$t(`优惠券`)}}</view>
-					<view class='discount'>
-						{{couponTitle}}
-						<text class='iconfont icon-jiantou'></text>
-					</view>
-				</view>
-				<view class='item acea-row row-between-wrapper'
-					v-if="!pinkId && !BargainId && !combinationId && !seckillId && !advanceId && integral_open">
-					<view>{{$t(`积分抵扣`)}}</view>
-					<view class='discount acea-row row-middle'>
-						<view> {{useIntegral ? $t(`剩余积分`):$t(`当前积分`)}}
-							<text class='num font-color'>{{integral || 0}}</text>
-						</view>
-						<checkbox-group @change="ChangeIntegral">
-							<checkbox :disabled="integral<=0 && !useIntegral" :checked='useIntegral ? true : false' />
-						</checkbox-group>
-					</view>
-				</view>
+			<orderGoods :cartInfo="cartInfo" :is_confirm='true' :shipping_type="shippingType"></orderGoods>
+			<view class='wrapper'>
 				<view v-if="invoice_func || special_invoice" class='item acea-row row-between-wrapper' @tap="goInvoice">
 					<view>{{$t(`开具发票`)}}</view>
 					<view class='discount'>
@@ -151,16 +95,16 @@
 				</view>
 				<view class='item' v-if="textareaStatus">
 					<view>{{$t(`备注说明`)}}</view>
-					<view class="mark" v-if="!coupon.coupon && !inputTrip" @click="inputTripClick">
+					<view class="mark" v-if="!inputTrip" @click="inputTripClick">
 						<view :class="{'mark-msg': mark}" v-text="mark || $t(`填写备注信息，100字以内`)"></view>
 					</view>
 					<textarea placeholder-class='placeholder' :placeholder="$t(`填写备注信息，100字以内`)"
-						v-if="!coupon.coupon && inputTrip" @input='bindHideKeyboard' :focus="focus" @blur="inputTrip = false"
+						v-if="inputTrip" @input='bindHideKeyboard' :focus="focus" @blur="inputTrip = false"
 						:value="mark" :maxlength="150" name="mark">
 						</textarea>
 				</view>
 			</view>
-			<view class='wrapper' v-if="confirm.length && (!is_gift || is_gift == 1)">
+			<view class='wrapper' v-if="confirm.length">
 				<view class='item acea-row row-between-wrapper' v-for="(item,index) in confirm" :key="index">
 					<view>
 						<span v-if="item.status" style="color: red;">*</span>
@@ -228,63 +172,32 @@
 					</view>
 				</view>
 			</view>
-			<view class='moneyList' v-if="!is_gift || is_gift == 1">
+			<view class='moneyList'>
 				<view class='item acea-row row-between-wrapper'>
 					<view>{{$t(`商品总价`)}}：</view>
 					<view class='money'>
 						{{$t(`￥`)}}{{allPrice || 0}}
 					</view>
 				</view>
-				<view v-if="is_gift && priceGroup.giftPrice > 0" class='item acea-row row-between-wrapper'>
-					<view>{{$t(`礼品附加费`)}}：</view>
-					<view class='money'>
-						{{$t(`￥`)}}{{parseFloat(priceGroup.giftPrice)}}
-					</view>
-				</view>
-				<view class='item acea-row row-between-wrapper'
-					v-if="priceGroup.storePostage > 0 || priceGroup.storePostageDiscount > 0">
+				v-if="priceGroup.storePostage > 0">
 					<view>{{$t(`配送运费`)}}：</view>
 					<view class='money'>
-						{{$t(`￥`)}}{{(parseFloat(priceGroup.storePostage)+parseFloat(priceGroup.storePostageDiscount)).toFixed(2)}}
+						{{$t(`￥`)}}{{parseFloat(priceGroup.storePostage).toFixed(2)}}
 					</view>
-				</view>
-				<view class='item acea-row row-between-wrapper'
-					v-if="priceGroup.levelPrice > 0 && userInfo.vip && !pinkId && !BargainId && !combinationId && !seckillId && !discountId">
-					<view>{{$t(`用户等级优惠`)}}：</view>
-					<view class='money'>-{{$t(`￥`)}}{{parseFloat(priceGroup.levelPrice).toFixed(2)}}</view>
-				</view>
-				<view class='item acea-row row-between-wrapper'
-					v-if="priceGroup.memberPrice > 0 && userInfo.vip && !pinkId && !BargainId && !combinationId && !seckillId && !discountId">
-					<view>{{$t(`付费会员优惠`)}}：</view>
-					<view class='money'>-{{$t(`￥`)}}{{parseFloat(priceGroup.memberPrice).toFixed(2)}}</view>
-				</view>
-				<view class='item acea-row row-between-wrapper' v-if="priceGroup.storePostageDiscount > 0">
-					<view>{{$t(`会员运费优惠`)}}：</view>
-					<view class='money'>-{{$t(`￥`)}}{{parseFloat(priceGroup.storePostageDiscount).toFixed(2)}}</view>
-				</view>
-				<view class='item acea-row row-between-wrapper' v-if="coupon_price > 0">
-					<view>{{$t(`优惠券抵扣`)}}：</view>
-					<view class='money'>-{{$t(`￥`)}}{{parseFloat(coupon_price).toFixed(2)}}</view>
-				</view>
-				<view class='item acea-row row-between-wrapper' v-if="integral_price > 0">
-					<view>{{$t(`积分抵扣`)}}：</view>
-					<view class='money'>-{{$t(`￥`)}}{{parseFloat(integral_price).toFixed(2)}}</view>
 				</view>
 			</view>
 			<view style='height:120rpx;'></view>
-			<view class='footer acea-row row-between-wrapper' v-if="!is_gift || is_gift == 1">
+			<view class='footer acea-row row-between-wrapper'>
 				<view>{{$t(`合计`)}}:
 					<text class='font-color'>{{$t(`￥`)}}{{totalPrice || 0}}</text>
 				</view>
 				<view class='settlement' style='z-index:100' @tap.stop="Debounce(SubOrder())"
-					v-if="(valid_count>0&&!discount_id) || (valid_count==cartInfo.length&&discount_id)">{{$t(`提交订单`)}}
+					v-if="valid_count>0">{{$t(`提交订单`)}}
 				</view>
 				<view class='settlement bg-color-hui' style='z-index:100' v-else>{{$t(`提交订单`)}}</view>
 			</view>
 		</view>
 		<view class="alipaysubmit" v-html="formContent"></view>
-		<couponListWindow :coupon='coupon' @ChangCouponsClone="ChangCouponsClone" :openType='openType' :cartId='cartId'
-			@ChangCoupons="ChangCoupons"></couponListWindow>
 		<addressWindow ref="addressWindow" @changeTextareaStatus="changeTextareaStatus" :news='news' :address='address'
 			:pagesUrl="pagesUrl" @OnChangeAddress="OnChangeAddress" @changeClose="changeClose"
 			@onHaveAddressList="onHaveAddressList"></addressWindow>
@@ -302,12 +215,9 @@
 <script>
 	import {
 		orderConfirm,
-		getCouponsOrderPrice,
 		orderCreate,
 		postOrderComputed,
-		checkShipping,
-		getGiftOrderDetail,
-		orderReceiveGift
+		checkShipping
 	} from '@/api/order.js';
 	import {
 		getAddressDefault,
@@ -325,7 +235,6 @@
 		CACHE_LONGITUDE,
 		CACHE_LATITUDE
 	} from '@/config/cache.js';
-	import couponListWindow from '@/components/couponListWindow';
 	import addressWindow from '@/components/addressWindow';
 	import orderGoods from '@/components/orderGoods';
 	import home from '@/components/home';
@@ -346,7 +255,6 @@
 		components: {
 			payment,
 			invoicePicker,
-			couponListWindow,
 			addressWindow,
 			orderGoods,
 			home,
@@ -387,24 +295,11 @@
 						payStatus: 1,
 					},
 					{
-						"name": this.$t(`余额支付`),
-						"icon": "icon-yuezhifu",
-						value: 'yue',
-						title: this.$t(`可用余额`),
-						payStatus: 1,
-					},
-					{
 						"name": this.$t(`线下支付`),
 						"icon": "icon-yuezhifu1",
 						value: 'offline',
 						title: this.$t(`使用线下付款`),
 						payStatus: 2,
-					}, {
-						"name": this.$t(`好友代付`),
-						"icon": "icon-haoyoudaizhifu",
-						value: 'friend',
-						title: this.$t(`找微信好友支付`),
-						payStatus: 1,
 					}
 
 				],
@@ -412,35 +307,16 @@
 				allPrice: 0,
 				formContent: '',
 				payType: '', //支付方式
-				openType: 1, //优惠券打开方式 1=使用
 				active: 0, //支付方式切换
-				coupon: {
-					coupon: false,
-					list: [],
-					statusTile: this.$t(`立即使用`)
-				}, //优惠券组件
 				address: {
 					address: false
 				}, //地址组件
 				addressInfo: {}, //地址信息
-				pinkId: 0, //拼团id
 				addressId: 0, //地址id
-				couponId: 0, //优惠券id
 				cartId: '', //购物车id
-				orderId: '', // 订单id, 领取礼物页面传参
-				BargainId: 0,
-				combinationId: 0,
 				seckillId: 0,
-				discountId: 0,
 				userInfo: {}, //用户信息
 				mark: '', //备注信息
-				couponTitle: this.$t(`请选择`), //优惠券
-				coupon_price: 0, //优惠券抵扣金额
-				useIntegral: false, //是否使用积分
-				integral_price: 0, //积分抵扣金额
-				integral: 0,
-				usable_integral: 0,
-				ChangePrice: 0, //使用积分抵扣变动后的金额
 				formIds: [], //收集formid
 				status: 0,
 				is_address: false,
@@ -448,8 +324,6 @@
 				shippingType: 0,
 				system_store: {},
 				storePostage: 0,
-				advanceId: 0,
-				gift_mark: '这是送您的一份礼物~', // 礼物留言
 				contacts: '',
 				contactsTel: '',
 				mydata: {},
@@ -459,7 +333,6 @@
 				priceGroup: {},
 				animated: false,
 				totalPrice: 0,
-				integralRatio: "0",
 				pagesUrl: "",
 				orderKey: "",
 				// usableCoupon: {},
@@ -479,16 +352,11 @@
 				invChecked: '',
 				urlQuery: '',
 				pay_close: false,
-				noCoupon: 0,
 				valid_count: 0,
-				discount_id: 0,
 				is_shipping: true,
 				inputTrip: false,
 				focus: true,
-				integral_open: false,
-				jumpData: {},
-				is_gift: 0, // 1 购买的礼品 2领取礼品
-				giftData: null
+				jumpData: {}
 			};
 		},
 		computed: mapGetters(['isLogin']),
@@ -516,20 +384,12 @@
 				tab: 3,
 				url: 1
 			});
-			if(options.is_gift){
-				this.is_gift = Number(options.is_gift);
-			}
-			this.couponId = options.couponId || 0;
-			this.noCoupon = Number(options.noCoupon) || 0;
-			this.pinkId = options.pinkId ? parseInt(options.pinkId) : 0;
 			this.addressId = options.addressId || 0;
 			this.cartId = options.cartId;
-			this.orderId = options.order_id || 0
 			this.is_address = options.is_address ? true : false;
 			this.news = !options.new || options.new === '0' ? 0 : 1;
 			this.invChecked = options.invoice_id || '';
 			this.header_type = options.header_type || '1';
-			this.couponTitle = options.couponTitle || this.$t(`请选择`)
 			if (options.invoice_id) {
 				let name = ''
 				name += options.header_type == 1 ? this.$t(`个人`) : this.$t(`企业`);
@@ -540,10 +400,8 @@
 			// #ifndef APP-PLUS
 			this.textareaStatus = true;
 			// #endif
-			if (this.isLogin && this.toPay == false && (this.is_gift == 0 || this.is_gift == 1)) {
+			if (this.isLogin && this.toPay == false) {
 				this.checkShipping();
-			}else if(this.is_gift && this.isLogin){
-				this.getOrderDetail()
 			} else {
 				toLogin();
 			}
@@ -701,7 +559,7 @@
 				this.getInvoiceList()
 				this.invShow = true;
 				this.urlQuery =
-					`new=${this.news}&cartId=${this.cartId}&pinkId=${this.pinkId}&couponId=${this.couponId}&addressId=${this.addressId}&specialInvoice=${this.special_invoice}&couponTitle=${this.couponTitle}`;
+					`new=${this.news}&cartId=${this.cartId}&addressId=${this.addressId}&specialInvoice=${this.special_invoice}`;
 			},
 			/**
 			 * 授权回调事件
@@ -774,21 +632,16 @@
 				let shippingType = this.shippingType;
 				let data = {
 					addressId: this.addressId,
-					useIntegral: this.useIntegral ? 1 : 0,
-					couponId: this.couponId,
+					useIntegral: 0,
+					couponId: 0,
 					shipping_type: parseInt(shippingType) + 1,
 					payType: this.payType
 				}
-				if (this.is_gift) data.is_gift = this.is_gift
 				postOrderComputed(this.orderKey, data).then(res => {
 					let result = res.data.result;
 					if (result) {
 						this.totalPrice = result.pay_price;
-						this.integral_price = result.deduction_price;
-						this.coupon_price = result.coupon_price;
-						this.integral = this.useIntegral ? result.SurplusIntegral : this.usable_integral;
 						this.$set(this.priceGroup, 'storePostage', shippingType == 1 ? 0 : result.pay_postage);
-						this.$set(this.priceGroup, 'storePostageDiscount', result.storePostageDiscount);
 					}
 				})
 			},
@@ -824,10 +677,8 @@
 					// #endif
 				};
 				this.$nextTick(e => {
-					if(!this.is_gift){
-						this.getConfirm();
-						this.computedPrice();
-					}
+					this.getConfirm();
+					this.computedPrice();
 				})
 			},
 			bindPickerChange: function(e) {
@@ -835,58 +686,9 @@
 				this.shippingType = value;
 				this.computedPrice();
 			},
-			ChangCouponsClone: function() {
-				this.$set(this.coupon, 'coupon', false);
-			},
 			changeTextareaStatus: function() {
-				for (let i = 0, len = this.coupon.list.length; i < len; i++) {
-					this.coupon.list[i].use_title = '';
-					this.coupon.list[i].is_use = 0;
-				}
 				this.textareaStatus = true;
 				this.status = 0;
-				this.$set(this.coupon, 'list', this.coupon.list);
-			},
-			/**
-			 * 处理点击优惠券后的事件
-			 * 
-			 */
-			ChangCoupons: function(e) {
-				// this.usableCoupon = e
-				// this.coupon.coupon = false
-				let index = e,
-					list = this.coupon.list,
-					couponTitle = this.$t(`请选择`),
-					couponId = 0;
-				for (let i = 0, len = list.length; i < len; i++) {
-					if (i != index) {
-						list[i].use_title = '';
-						list[i].is_use = 0;
-					}
-				}
-				if (list[index].is_use) {
-					//不使用优惠券
-					list[index].use_title = '';
-					list[index].is_use = 0;
-				} else {
-					//使用优惠券
-					list[index].use_title = this.$t(`不使用`);
-					list[index].is_use = 1;
-					couponTitle = list[index].coupon_title;
-					couponId = list[index].id;
-				}
-				this.couponTitle = couponTitle;
-				this.couponId = couponId;
-				this.$set(this.coupon, 'coupon', false);
-				this.$set(this.coupon, 'list', list);
-				this.computedPrice();
-			},
-			/**
-			 * 使用积分抵扣
-			 */
-			ChangeIntegral: function() {
-				this.useIntegral = !this.useIntegral;
-				this.computedPrice();
 			},
 			/**
 			 * 选择地址后改变事件
@@ -897,47 +699,12 @@
 				this.addressId = e;
 				this.address.address = false;
 				this.getaddressInfo();
-				if(!this.is_gift){
-					this.getConfirm()
-					this.computedPrice();
-				}
+				this.getConfirm()
+				this.computedPrice();
 			},
 			bindHideKeyboard: function(e) {
 				this.mark = e.detail.value;
 			},
-			getOrderDetail() {
-				getGiftOrderDetail(this.orderId).then(res => {
-					this.giftData = res.data
-					this.$set(this, 'cartInfo', res.data.cartInfo);
-					this.store_self_mention = res.data.store_self_mention
-					if (res.data.type == 0) {
-						this.is_shipping = true;
-						this.shippingType = 0;
-						this.getaddressInfo();
-						this.$nextTick(()=> {
-							this.$refs.addressWindow.getAddressList();
-						})
-					} else {
-						if (res.data.type == 1) {
-							this.is_shipping = false;
-							this.shippingType = 0;
-							this.getaddressInfo();
-							this.$nextTick(()=> {
-								this.$refs.addressWindow.getAddressList();
-							})
-						} else if (res.data.type == 2) {
-							this.is_shipping = false;
-							this.shippingType = 1;
-							this.addressType(1)
-							this.getList();
-						}
-					}
-				})
-			},
-			/**
-			 * 获取当前订单详细信息
-			 * 
-			 */
 			getConfirm: function() {
 				let that = this;
 				// return;
@@ -951,38 +718,30 @@
 					addressId: that.addressId,
 					shipping_type: that.shippingType + 1
 				}
-				if (that.is_gift) data.is_gift = that.is_gift
 				orderConfirm(data).then(res => {
 					that.$set(that, 'userInfo', res.data.userInfo);
 					that.$set(that, 'confirm', res.data.custom_form || []);
 					this.confirm.map(e => {
 						if (e.label === 'img') e.value = []
 					})
-					that.$set(that, 'integral', res.data.usable_integral);
-					that.$set(that, 'usable_integral', res.data.usable_integral);
 					that.$set(that, 'contacts', res.data.userInfo.real_name);
 					that.$set(that, 'contactsTel', res.data.userInfo.record_phone === '0' ? res.data.userInfo.phone : res
 						.data
 						.userInfo.record_phone);
 					that.$set(that, 'cartInfo', res.data.cartInfo);
-					that.$set(that, 'integralRatio', res.data.integralRatio);
 					that.$set(that, 'offlinePostage', res.data.offlinePostage);
 					that.$set(that, 'orderKey', res.data.orderKey);
 					that.$set(that, 'valid_count', res.data.valid_count);
-					that.$set(that, 'discount_id', res.data.discount_id)
 					that.$set(that, 'priceGroup', res.data.priceGroup);
 					that.$set(that, 'totalPrice', that.$util.$h.Add(parseFloat(res.data.priceGroup.totalPrice),
 						parseFloat(res.data
 							.priceGroup.storePostage)));
-					that.$set(that, 'allPrice', that.$util.$h.Add(parseFloat(res.data.priceGroup.totalPrice),
-						parseFloat(res.data
-							.priceGroup.vipPrice)).toFixed(2));
+					that.$set(that, 'allPrice', parseFloat(res.data.priceGroup.totalPrice || 0).toFixed(2));
 					that.$set(that, 'seckillId', parseInt(res.data.seckill_id));
 					that.$set(that, 'invoice_func', res.data.invoice_func);
 					that.$set(that, 'special_invoice', res.data.special_invoice);
 					that.$set(that, 'store_self_mention', res.data.store_self_mention);
 					that.$set(that, 'virtual_type', res.data.virtual_type || 0);
-					that.$set(that, 'integral_open', res.data.integral_open);
 					uni.hideLoading()
 					//微信支付是否开启
 					that.cartArr[0].payStatus = res.data.pay_weixin_open || 0
@@ -991,24 +750,13 @@
 					//#ifdef MP
 					that.cartArr[1].payStatus = 0;
 					//#endif
-					//余额支付是否开启
-					// that.cartArr[2].title = '可用余额:' + res.data.userInfo.now_money;
-					that.cartArr[2].number = res.data.userInfo.now_money;
-					that.cartArr[2].payStatus = res.data.yue_pay_status == 1 ? res.data.yue_pay_status : 0
 					if (res.data.offline_pay_status == 2 || res.data.deduction) {
-						that.cartArr[3].payStatus = 0
+						that.cartArr[2].payStatus = 0
 					} else {
-						that.cartArr[3].payStatus = 1
+						that.cartArr[2].payStatus = 1
 					}
-					//好友代付是否开启
-					that.cartArr[4].payStatus = res.data.friend_pay_status || 0;
 					// that.$set(that, 'cartArr', that.cartArr);
-					that.$set(that, 'ChangePrice', that.totalPrice);
-					that.getBargainId();
-					setTimeout(() => {
-						that.getCouponList();
-					}, 500);
-					if (this.addressId && !this.is_gift) {
+					if (this.addressId) {
 						this.computedPrice();
 					}
 				}).catch(err => {
@@ -1016,51 +764,6 @@
 					return this.$util.Tips({
 						title: err
 					});
-				});
-			},
-			/*
-			 * 提取砍价和拼团id
-			 */
-			getBargainId: function() {
-				let that = this;
-				let cartINfo = that.cartInfo;
-				let BargainId = 0;
-				let combinationId = 0;
-				let discountId = 0;
-				let advanceId = 0;
-				cartINfo.forEach(function(value, index, cartINfo) {
-					BargainId = cartINfo[index].bargain_id,
-						combinationId = cartINfo[index].combination_id,
-						discountId = cartINfo[index].discount_id,
-						advanceId = cartINfo[index].advance_id
-				})
-				that.$set(that, 'BargainId', parseInt(BargainId));
-				that.$set(that, 'combinationId', parseInt(combinationId));
-				that.$set(that, 'discountId', parseInt(discountId));
-				that.$set(that, 'advanceId', parseInt(advanceId));
-				if (that.cartArr.length == 3 && (BargainId || combinationId || that.seckillId || discountId)) {
-					that.cartArr[2].payStatus = 0;
-					that.$set(that, 'cartArr', that.cartArr);
-				}
-			},
-			/**
-			 * 获取当前金额可用优惠券
-			 * 
-			 */
-			getCouponList: function() {
-				let shippingType = this.shippingType;
-				let that = this;
-				let data = {
-					cartId: this.cartId,
-					'new': this.news,
-					'shippingType': parseInt(shippingType) + 1
-				}
-				getCouponsOrderPrice(this.totalPrice, data).then(res => {
-					this.$set(this.coupon, 'list', res.data);
-					if (!this.pinkId && !this.BargainId && !this.combinationId && !this.seckillId && !this.noCoupon && !this.discountId && !this.advanceId) {
-						this.coupon.list.length && this.ChangCoupons(0)
-					}
-					this.openType = 1;
 				});
 			},
 			/*
@@ -1092,17 +795,6 @@
 					that.car();
 				}, 500);
 			},
-			couponTap: function() {
-				this.coupon.coupon = true;
-				this.coupon.list.forEach((item, index) => {
-					if (item.id == this.couponId) {
-						item.is_use = 1
-					} else {
-						item.is_use = 0
-					}
-				})
-				this.$set(this.coupon, 'list', this.coupon.list);
-			},
 			car: function() {
 				let that = this;
 				that.animated = false;
@@ -1113,19 +805,9 @@
 					this.$refs.addressWindow.getAddressList();
 					that.textareaStatus = false;
 					that.address.address = true;
-					that.pagesUrl = '/pages/users/user_address_list/index?news=' + this.news + '&cartId=' + this
-						.cartId +
-						'&pinkId=' +
-						this.pinkId +
-						'&couponId=' +
-						this.couponId + 
-						'&is_gift=' +
-						that.is_gift + 
-						'&order_id=' + that.orderId
+					that.pagesUrl = '/pages/users/user_address_list/index?news=' + this.news + '&cartId=' + this.cartId
 				} else {
-					let url = '/pages/users/user_address/index?cartId=' + this.cartId + '&pinkId=' + this
-							.pinkId +
-							'&couponId=' + this.couponId + '&new=' + this.news + '&is_gift=' + that.is_gift + '&order_id=' + that.orderId
+					let url = '/pages/users/user_address/index?cartId=' + this.cartId + '&new=' + this.news
 					uni.navigateTo({
 						url: url
 					})
@@ -1168,7 +850,7 @@
 			SubOrder(e) {
 				let that = this,
 					data = {};
-				if (!that.addressId && !that.shippingType && !that.virtual_type && !that.is_gift) return that.$util.Tips({
+				if (!that.addressId && !that.shippingType && !that.virtual_type) return that.$util.Tips({
 					title: that.$t(`请选择收货地址`)
 				});
 				if (that.shippingType == 1) {
@@ -1239,18 +921,17 @@
 				}
 				data = {
 					custom_form: that.confirm,
-					gift_mark: that.gift_mark, // 礼物留言
 					real_name: that.contacts,
 					phone: that.contactsTel,
 					addressId: that.addressId,
 					formId: '',
-					couponId: that.couponId,
-					useIntegral: that.useIntegral,
-					bargainId: that.BargainId,
-					combinationId: that.combinationId,
-					discountId: that.discountId,
-					pinkId: that.pinkId,
-					advanceId: that.advanceId,
+					couponId: 0,
+					useIntegral: false,
+					bargainId: 0,
+					combinationId: 0,
+					discountId: 0,
+					pinkId: 0,
+					advanceId: 0,
 					seckill_id: that.seckillId,
 					mark: that.mark,
 					store_id: that.system_store ? that.system_store.id : 0,
@@ -1261,17 +942,12 @@
 					// #ifdef H5
 					quitUrl: location.protocol + '//' + location.hostname +
 						'/pages/goods/order_pay_status/index?' +
-						'&type=3' + '&totalPrice=' + this.totalPrice
+						'&type=3' + '&totalPrice=' + this.totalPrice,
 					// #endif
 					// #ifdef APP-PLUS
 					quitUrl: '/pages/goods/order_details/index?order_id=' + this.order_id
 					// #endif
 				};
-				if (that.is_gift) data.is_gift = that.is_gift
-				if (data.payType == 'yue' && parseFloat(that.userInfo.now_money) < parseFloat(that.totalPrice))
-					return that.$util.Tips({
-						title: that.$t(`余额不足`)
-					});
 				// uni.showLoading({
 				// 	title: that.$t(`订单支付中`)
 				// });
@@ -1283,26 +959,6 @@
 				// #ifndef MP
 				that.payment(data);
 				// #endif
-			},
-			receiveGift() {
-				let data = {
-					gift_key: this.giftData.gift_key,
-					shipping_type: this.$util.$h.Add(this.shippingType, 1),
-					name: this.contacts,
-					phone: this.contactsTel,
-					address_id: this.addressId,
-					store_id: this.system_store ? this.system_store.id : 0,
-				}
-				orderReceiveGift(this.orderId, data).then(res => {
-					uni.reLaunch({
-						url: `/pages/goods/receive_gifts_status/index?status=${res.data.status}&order_id=${this.giftData.order_id}`
-					})
-				}).catch(err => {
-					uni.showToast({
-						icon: 'none',
-						title: err
-					})
-				})
 			},
 			bindDateChange: function(e, index) {
 				this.confirm[index].value = e.target.value

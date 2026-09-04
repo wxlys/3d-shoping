@@ -1,6 +1,6 @@
 <template>
 	<view :style="colorStyle">
-		<view class="payment-status" v-if="(!orderLottery || !order_pay_info.paid || is_gift) && loading && lotteryLoading">
+		<view class="payment-status" v-if="loading">
 			<!--失败时： 用icon-iconfontguanbi fail替换icon-duihao2 bg-color-->
 			<view class="iconfont icons icon-duihao2 bg-color" v-if="order_pay_info.paid || order_pay_info.pay_type == 'offline'"></view>
 			<view class="iconfont icons icon-iconfontguanbi" v-else></view>
@@ -20,7 +20,7 @@
 				</view>
 				<view class="item acea-row row-between-wrapper">
 					<view>{{ $t(`支付方式`) }}</view>
-					<view class="itemCom">{{ $t(order_pay_info._status._payType) || $t(`暂未支付`) }}</view>
+					<view class="itemCom">{{ order_pay_info._status && order_pay_info._status._payType ? $t(order_pay_info._status._payType) : $t(`暂未支付`) }}</view>
 				</view>
 				<view class="item acea-row row-between-wrapper">
 					<view>{{ $t(`支付金额`) }}</view>
@@ -31,9 +31,6 @@
 					<view>{{ $t(`失败原因`) }}</view>
 					<view class="itemCom">{{ $t(`未支付`) }}</view>
 				</view>
-			</view>
-			<view v-if="order_pay_info.paid != 0 && is_gift !== 0" @click="giftModalShow = true">
-				<button class="returnBnt bg-color" hover-class="none">{{ $t(`送给好友`) }}</button>
 			</view>
 			<!--失败时： 重新购买 -->
 			<view @tap="goOrderDetails" v-if="status == 0">
@@ -50,88 +47,22 @@
 			<view @tap="goOrderDetails" v-if="order_pay_info.paid == 0 && status == 2">
 				<button class="returnBnt bg-color" hover-class="none">{{ $t(`重新支付`) }}</button>
 			</view>
-			<button
-				@click="goPink(order_pay_info.pink_id)"
-				class="returnBnt cart-color"
-				formType="submit"
-				hover-class="none"
-				v-if="order_pay_info.pink_id && order_pay_info.paid != 0 && status != 2 && status != 1"
-			>
-				{{ $t(`邀请好友参团`) }}
-			</button>
-			<button @click="goIndex" class="returnBnt cart-color" formType="submit" hover-class="none" v-else>{{ $t(`返回首页`) }}</button>
-			<view class="coupons" v-if="couponList.length">
-				<view class="title acea-row row-center-wrapper">
-					<view class="line"></view>
-					<view class="name">{{ $t(`赠送优惠券`) }}</view>
-					<view class="line"></view>
-				</view>
-				<view class="list">
-					<view class="item acea-row row-between-wrapper" v-for="(item, index) in couponList" :key="index" v-if="index < 2 || !couponsHidden">
-						<view class="moneyCon acea-row row-between-wrapper">
-							<view class="price acea-row row-center-wrapper">
-								<view>
-									{{ $t(`￥`) }}
-									<text>{{ item.coupon_price }}</text>
-								</view>
-							</view>
-						</view>
-						<view class="text">
-							<view class="name line1">{{ item.coupon_title }}</view>
-							<view class="priceMin">{{ $t(`满`) }}{{ item.use_min_price }}{{ $t(`元可用`) }}</view>
-							<view class="time">{{ $t(`有效期`) }}:{{ item.add_time ? item.add_time + '-' : '' }}{{ item.end_time }}</view>
-						</view>
-					</view>
-					<view class="open acea-row row-center-wrapper" @click="openTap" v-if="couponList.length > 2">
-						{{ couponsHidden ? $t(`更多`) : $t(`关闭`) }}
-						<text class="iconfont" :class="couponsHidden == true ? 'icon-xiangxia' : 'icon-xiangshang'"></text>
-					</view>
-				</view>
-			</view>
-		</view>
-		<lotteryModel
-			v-show="orderLottery && order_pay_info.paid && loading && lotteryLoading && !is_gift"
-			:options="options"
-			@orderDetails="goOrderDetails"
-			@lotteryShow="getOrderLottery"
-		></lotteryModel>
-		<giftModal :aleartStatus="giftModalShow" :giftData="giftData" @shareH5="shareH5" @close="giftModalShow = false"></giftModal>
-		<view class="mask" v-if="giftModalShow"></view>
-		<canvas class="canvas" canvas-id="posterCanvas"></canvas>
-		<view class="share-box" v-if="H5ShareBox">
-			<image :src="imgHost + '/statics/images/share-info.png'" @click="H5ShareBox = false"></image>
+			<button @click="goIndex" class="returnBnt cart-color" formType="submit" hover-class="none">{{ $t(`返回首页`) }}</button>
 		</view>
 	</view>
 </template>
 
 <script>
-import { userShare } from '@/api/user.js';
-import lotteryModel from './payLottery.vue';
-import giftModal from './components/giftModal.vue';
-import { getOrderDetail, orderCoupon } from '@/api/order.js';
+import { getOrderDetail } from '@/api/order.js';
 import { openOrderSubscribe } from '@/utils/SubscribeMessage.js';
 import { toLogin } from '@/libs/login.js';
 import { mapGetters } from 'vuex';
-// #ifdef MP
-import authorize from '@/components/Authorize';
-// #endif
 import colors from '@/mixins/color';
-import { HTTP_REQUEST_URL } from '@/config/app';
 export default {
-	components: {
-		lotteryModel,
-		giftModal,
-		// #ifdef MP
-		authorize
-		// #endif
-	},
 	mixins: [colors],
 	data() {
 		return {
-			imgHost: HTTP_REQUEST_URL,
 			loading: false,
-			lotteryLoading: false,
-			orderLottery: false,
 			orderId: '',
 			order_pay_info: {
 				paid: 1,
@@ -141,16 +72,8 @@ export default {
 			isShowAuth: false, //是否隐藏授权
 			status: 0,
 			msg: '',
-			couponsHidden: true,
-			couponList: [],
 			options: null,
-			payType: '',
-			giftData: {},
-			giftModalShow: false,
-			H5ShareBox: false,
-			is_gift: 0,
-			storeInfo: {},
-			mpGiftImg: HTTP_REQUEST_URL + '/statics/images/gift_share.jpg'
+			payType: ''
 		};
 	},
 	computed: mapGetters(['isLogin']),
@@ -200,68 +123,7 @@ export default {
 			toLogin();
 		}
 	},
-	/**
-	 * 用户点击右上角分享
-	 */
-	// #ifdef MP
-	onShareAppMessage: function () {
-		let that = this;
-		userShare();
-		return {
-			title: that.giftData.message || '',
-			imageUrl: that.mpGiftImg || '',
-			path: '/pages/goods/receive_gift/index?id=' + this.giftData.id + '&spid=' + this.$store.state.app.uid
-		};
-	},
-	onShareTimeline() {
-		let that = this;
-		userShare();
-		return {
-			title: that.giftData.message,
-			query: {
-				id: that.id,
-				spid: that.uid || 0
-			},
-			imageUrl: that.mpGiftImg
-		};
-	},
-	// #endif
 	methods: {
-		// #ifdef H5
-		setOpenShare() {
-			let that = this;
-			if (that.$wechat.isWeixin()) {
-				let configAppMessage = {
-					desc: this.giftData.message,
-					title: this.giftData.title,
-					link: window.location.protocol + '//' + window.location.host + '/pages/goods/receive_gift/index?id=' + this.giftData.id + '&spid=' + that.$store.state.app.uid,
-					imgUrl: that.mpGiftImg
-				};
-				that.$wechat
-					.wechatEvevt(['updateAppMessageShareData', 'updateTimelineShareData', 'onMenuShareAppMessage', 'onMenuShareTimeline'], configAppMessage)
-					.then((res) => {})
-					.catch((res) => {
-						if (res.is_ready) {
-							res.wx.updateAppMessageShareData(configAppMessage);
-							res.wx.updateTimelineShareData(configAppMessage);
-							res.wx.onMenuShareAppMessage(configAppMessage);
-							res.wx.onMenuShareTimeline(configAppMessage);
-						}
-					});
-			}
-		},
-		// #endif
-		shareH5() {
-			// this.giftModalShow = false;
-			this.H5ShareBox = true;
-		},
-		getOrderLottery(status) {
-			this.orderLottery = status;
-			this.lotteryLoading = true;
-		},
-		openTap() {
-			this.$set(this, 'couponsHidden', !this.couponsHidden);
-		},
 		onLoadFun: function () {
 			this.getOrderPayInfo();
 		},
@@ -283,57 +145,17 @@ export default {
 						title: res.data.paid ? that.$t(`支付成功`) : that.$t(`未支付`)
 					});
 					this.loading = true;
-					if (res.data.paid && res.data.is_gift) {
-						this.storeInfo = res.data.cartInfo[0].productInfo;
-						this.is_gift = res.data.is_gift;
-					}
-					this.giftData = {
-						image: res.data.cartInfo[0].productInfo.image,
-						title: res.data.cartInfo[0].productInfo.store_name,
-						message: res.data.gift_mark,
-						id: res.data.id,
-						avatar: res.data.avatar,
-						nickname: res.data.nickname,
-						code: res.data.gift_code
-					};
-					// #ifdef H5
-					if (this.is_gift) this.setOpenShare();
-					// #endif
-					// 非礼品禁用分享
-					if (!this.is_gift) {
-						uni.hideShareMenu();
-					}
-					this.getOrderCoupon();
 				})
 				.catch((err) => {
 					this.loading = true;
 					uni.hideLoading();
 				});
 		},
-		getOrderCoupon() {
-			let that = this;
-			orderCoupon(that.orderId).then((res) => {
-				that.couponList = res.data;
-			});
-		},
-		/**
-		 * 去首页关闭当前所有页面
-		 */
 		goIndex: function (e) {
 			uni.switchTab({
 				url: '/pages/index/index'
 			});
 		},
-		// 去参团页面；
-		goPink: function (id) {
-			uni.navigateTo({
-				url: '/pages/activity/goods_combination_status/index?id=' + id
-			});
-		},
-		/**
-		 *
-		 * 去订单详情页面
-		 */
 		goOrderDetails: function (e) {
 			let that = this;
 			// #ifdef MP
@@ -348,7 +170,7 @@ export default {
 					});
 				})
 				.catch(() => {
-					nui.hideLoading();
+						uni.hideLoading();
 				});
 			// #endif
 			// #ifndef MP
@@ -362,75 +184,6 @@ export default {
 </script>
 
 <style lang="scss">
-.canvas {
-	width: 750rpx;
-	height: 1108rpx;
-	z-index: 9999;
-	position: absolute;
-	bottom: 40000rpx;
-	right: 30000rpx;
-}
-.coupons {
-	.title {
-		margin: 30rpx 0 25rpx 0;
-		font-size: 28rpx;
-		color: #333333;
-	}
-
-	.list {
-		padding: 0 20rpx;
-
-		.item {
-			margin-bottom: 20rpx;
-			box-shadow: 0px 2px 10px 0px rgba(0, 0, 0, 0.06);
-
-			.price {
-				width: 236rpx;
-				height: 160rpx;
-				font-size: 26rpx;
-				color: #fff;
-				font-weight: 800;
-
-				text {
-					font-size: 54rpx;
-				}
-			}
-
-			.text {
-				width: 385rpx;
-
-				.name {
-					font-size: #282828;
-					font-size: 30rpx;
-				}
-
-				.priceMin {
-					font-size: 24rpx;
-					color: #999;
-					margin-top: 10rpx;
-				}
-
-				.time {
-					font-size: 24rpx;
-					color: #999;
-					margin-top: 15rpx;
-				}
-			}
-		}
-
-		.open {
-			font-size: 24rpx;
-			color: #999;
-			margin-top: 30rpx;
-
-			.iconfont {
-				font-size: 25rpx;
-				margin: 5rpx 0 0 10rpx;
-			}
-		}
-	}
-}
-
 .payment-status {
 	background-color: #fff;
 	margin: 195rpx 30rpx 0 30rpx;
@@ -497,18 +250,5 @@ export default {
 	text-align: center;
 	line-height: 86rpx;
 	margin: 0 auto 20rpx auto;
-}
-.share-box {
-	z-index: 1000;
-	position: fixed;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-
-	image {
-		width: 100%;
-		height: 100%;
-	}
 }
 </style>

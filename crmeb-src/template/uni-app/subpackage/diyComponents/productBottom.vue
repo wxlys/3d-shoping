@@ -129,7 +129,7 @@
         </view>
       </view>
       <view class="btn-box" v-else>
-        <view v-if="!storeInfo.presale">
+        <view>
           <view
             class="bnt acea-row"
             :class="!isCartButtonVisible ? 'virbnt' : ''"
@@ -196,38 +196,6 @@
             </form>
           </view>
         </view>
-        <view class="presale" v-else>
-          <view
-            class="acea-row"
-            v-if="presale_pay_status === 1 || presale_pay_status === 3"
-          >
-            <form class="bnts bg-color-hui">
-              <button class="bnts bg-color-hui" form-type="submit">
-                {{ presale_pay_status === 1 ? $t(`未开始`) : $t(`已结束`) }}
-              </button>
-            </form>
-          </view>
-          <view
-            class="acea-row"
-            v-else-if="
-              attr.productSelect.quota <= 0 ||
-              attr.productSelect.quota < attr.productSelect.cart_num
-            "
-          >
-            <form class="bnts bg-color-hui">
-              <button class="bnts bg-color-hui" form-type="submit">
-                {{ $t(`已售罄`) }}
-              </button>
-            </form>
-          </view>
-          <view class="bnts acea-row" v-else-if="presale_pay_status === 2">
-            <form @submit="goBuy" class="bnts">
-              <button class="bnts" form-type="submit" :style="buyBtnStyle">
-                {{ $t(`立即购买`) }}
-              </button>
-            </form>
-          </view>
-        </view>
       </view>
     </view>
   </commonWrapper>
@@ -271,10 +239,6 @@ export default {
       default: () => ({
         productSelect: {},
       }),
-    },
-    presale_pay_status: {
-      type: [Number, String],
-      default: 1,
     },
     animated: {
       type: Boolean,
@@ -358,7 +322,11 @@ export default {
     customMenuList() {
       if (!this.isCustomEntry || !this.menuConfig) return [];
       return this.menuConfig.list
-        .filter((item) => item.show)
+        .filter(
+          (item) =>
+            item.show &&
+            this.isBusinessLink(item.info && item.info[1] && item.info[1].value)
+        )
         .map((item) => ({
           name: item.info[0].value,
           url: item.info[1].value,
@@ -402,6 +370,27 @@ export default {
     },
   },
   methods: {
+    isBusinessLink(url) {
+      if (!url) return false;
+      const disabledPaths = [
+        "user_coupon",
+        "user_integral",
+        "user_sgin",
+        "user_spread",
+        "promoter",
+        "commission",
+        "user_cash",
+        "user_payment",
+        "user_vip",
+        "vip_",
+        "vip/",
+        "goods_bargain",
+        "goods_combination",
+        "presell",
+        "points_mall",
+      ];
+      return !disabledPaths.some((path) => url.includes(path));
+    },
     goCustomer() {
       getCustomer(`/pages/extension/customer_list/chat?productId=${this.storeInfo.id}`);
     },

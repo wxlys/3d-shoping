@@ -4,8 +4,6 @@
 			@click="goDetail(item)">
 			<view class="pictrue">
 				<span class="pictrue_log pictrue_log_class" v-if="item.activity && item.activity.type === '1' && $permission('seckill')">{{$t(`秒杀`)}}</span>
-				<span class="pictrue_log pictrue_log_class" v-if="item.activity && item.activity.type === '2' && $permission('bargain')">{{$t(`砍价`)}}</span>
-				<span class="pictrue_log pictrue_log_class" v-if="item.activity && item.activity.type === '3' && $permission('combination')">{{$t(`拼团`)}}</span>
 				<image :src="item.image" mode=""></image>
 			</view>
 			<view class="pictxt">
@@ -21,7 +19,7 @@
 					</view>
 					<view v-if="item.stock>0">
 						<view class="iconfont icon-gouwuche6 acea-row row-center-wrapper"
-							v-if="item.activity && (item.activity.type === '1' || item.activity.type === '2' || item.activity.type === '3')">
+							v-if="item.activity && item.activity.type === '1'">
 						</view>
 						<view v-else>
 							<!-- 多规格 -->

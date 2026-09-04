@@ -47,7 +47,7 @@
       <view class="index">
         <!-- 自定义样式 -->
         <block v-for="(item, index) in styleConfig" :key="index">
-          <view :id="item.id">
+          <view :id="item.id" v-if="isBusinessComponent(item)">
             <userInfor
               v-if="item.name == 'userInfor'"
               :dataConfig="item"
@@ -58,34 +58,15 @@
               :dataConfig="item"
               @changeLogin="changeLogin"
             ></homeUserInfor>
-            <newVip
-              v-else-if="item.name == 'newVip'"
-              :dataConfig="item"
-            ></newVip>
             <!-- 文章列表 -->
             <articleList
               v-else-if="item.name == 'articleList'"
               :dataConfig="item"
             ></articleList>
-            <bargain
-              v-else-if="item.name == 'bargain'"
-              :dataConfig="item"
-              @changeBarg="changeBarg"
-            ></bargain>
             <blankPage
               v-else-if="item.name == 'blankPage'"
               :dataConfig="item"
             ></blankPage>
-            <combination
-              v-else-if="item.name == 'combination'"
-              :dataConfig="item"
-            ></combination>
-            <!-- 优惠券 -->
-            <coupon
-              v-else-if="item.name == 'coupon'"
-              :dataConfig="item"
-              @changeLogin="changeLogin"
-            ></coupon>
             <!-- 客户服务 -->
             <customerService
               v-else-if="item.name == 'customerService'"
@@ -149,14 +130,6 @@
               v-else-if="item.name == 'titles'"
               :dataConfig="item"
             ></titles>
-            <presale
-              v-else-if="item.name == 'presale'"
-              :dataConfig="item"
-            ></presale>
-            <pointsMall
-              v-else-if="item.name == 'pointsMall'"
-              :dataConfig="item"
-            ></pointsMall>
             <!-- #ifndef APP -->
             <richText
               v-else-if="item.name == 'richText'"
@@ -167,10 +140,6 @@
               :dataConfig="item"
             ></videos>
             <!-- #endif -->
-            <signIn
-              v-else-if="item.name == 'signIn'"
-              :dataConfig="item"
-            ></signIn>
             <hotspot
               v-else-if="item.name == 'hotspot'"
               :dataConfig="item"
@@ -191,23 +160,14 @@
               @share="onShare"
               @goActivity="onGoActivity"
             ></productInfo>
-            <homePaidVip
-              v-else-if="item.name == 'home_paid_vip'"
-              :dataConfig="item"
-              :productData="productData"
-              :isShowPaidVip="isShowPaidVip"
-              :priceData="priceData"
-            ></homePaidVip>
             <homeProductService
               v-else-if="item.name == 'productService'"
               :dataConfig="item"
               :productData="productData"
-              :couponList="couponList"
               :activity="activity"
               :attr="attr"
               :attrTxt="attrTxt"
               :attrValue="attrValue"
-              @showCoupon="onShowCoupon"
               @showSpecModal="onShowSpecModal"
               @openModal="onOpenModal"
               @goActivity="onGoActivity"
@@ -265,12 +225,8 @@ import headerSerch from "./headerSerch.vue";
 import tabNav from "./tabNav.vue";
 import userInfor from "./userInfor.vue";
 import homeUserInfor from "./homeUserInfor.vue";
-import newVip from "./newVip.vue";
 import articleList from "./articleList.vue";
-import bargain from "./bargain.vue";
 import blankPage from "./blankPage.vue";
-import combination from "./combination.vue";
-import coupon from "./coupon.vue";
 import customerService from "./customerService.vue";
 import goodList from "./goodList.vue";
 import guide from "./guide.vue";
@@ -283,15 +239,11 @@ import seckill from "./seckill.vue";
 import swiperBg from "./swiperBg.vue";
 import swipers from "./swipers.vue";
 import titles from "./titles.vue";
-import presale from "./presale.vue";
-import pointsMall from "./pointsMall.vue";
 import richText from "./richText.vue";
 import videos from "./videos.vue";
-import signIn from "./signIn.vue";
 import hotspot from "./hotspot.vue";
 import follow from "./follow.vue";
 import productInfo from "./productInfo.vue";
-import homePaidVip from "./homePaidVip.vue";
 import homeProductService from "./homeProductService.vue";
 import homeReviews from "./homeReviews.vue";
 import productDesc from "./productDesc.vue";
@@ -306,12 +258,8 @@ export default {
     tabNav,
     userInfor,
     homeUserInfor,
-    newVip,
     articleList,
-    bargain,
     blankPage,
-    combination,
-    coupon,
     customerService,
     goodList,
     guide,
@@ -324,15 +272,11 @@ export default {
     swiperBg,
     swipers,
     titles,
-    presale,
-    pointsMall,
     richText,
     videos,
-    signIn,
     hotspot,
     follow,
     productInfo,
-    homePaidVip,
     homeProductService,
     homeReviews,
     productDesc,
@@ -407,10 +351,6 @@ export default {
       type: Boolean,
       default: false,
     },
-    couponList: {
-      type: Array,
-      default: () => [],
-    },
     activity: {
       type: Array,
       default: () => [],
@@ -429,11 +369,6 @@ export default {
     },
     // 微页面
     microPage: {
-      type: Boolean,
-      default: false,
-    },
-    // 商品 vip 模块
-    isShowPaidVip: {
       type: Boolean,
       default: false,
     },
@@ -512,6 +447,23 @@ export default {
     },
   },
   methods: {
+    /**
+     * 用户端只渲染当前业务需要的装修组件。
+     * 组件文件和后台装修能力保留，避免历史装修数据或后续自定义页面断链。
+     */
+    isBusinessComponent(item) {
+      const disabledComponents = [
+        "bargain",
+        "combination",
+        "coupon",
+        "newVip",
+        "presale",
+        "pointsMall",
+        "signIn",
+        "home_paid_vip",
+      ];
+      return !!item && !disabledComponents.includes(item.name);
+    },
     reconnect() {
       this.$emit("reconnect");
     },
@@ -520,9 +472,6 @@ export default {
     },
     onShowSpecModal() {
       this.$emit("showSpecModal");
-    },
-    onShowCoupon() {
-      this.$emit("showCoupon");
     },
     onOpenModal(type) {
       this.$emit("openModal", type);
@@ -598,9 +547,6 @@ export default {
     },
     changeLogin() {
       this.$emit("changeLogin");
-    },
-    changeBarg(item) {
-      this.$emit("changeBarg", item);
     },
     newDataStatus(val, num) {
       this.isFooter = val ? true : false;

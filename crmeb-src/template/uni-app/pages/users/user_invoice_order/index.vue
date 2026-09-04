@@ -137,8 +137,12 @@
 				</view>
 				<view class='wrapper' v-else-if='orderInfo.delivery_type=="fictitious"'>
 					<view class='item acea-row row-between'>
-						<view>{{$t(`虚拟发货`)}}：</view>
-						<view class='conter'>{{$t(`已发货，请注意查收`)}}</view>
+						<view>{{$t(`配送方式`)}}：</view>
+						<view class='conter'>{{$t(`到店自取`)}}</view>
+					</view>
+					<view class='item acea-row row-between' v-if="orderInfo.fictitious_content">
+						<view>{{$t(`自取地点`)}}：</view>
+						<view class='conter'>{{orderInfo.fictitious_content}}</view>
 					</view>
 				</view>
 			</view>
@@ -147,18 +151,6 @@
 					<view>{{$t(`支付金额`)}}：</view>
 					<view class='conter'>{{$t(`￥`)}}{{orderInfo.pay_price}}</view>
 				</view>
-				<!-- <view class='item acea-row row-between' v-if='orderInfo.coupon_id'>
-					<view>{{$t(`优惠券抵扣`)}}：</view>
-					<view class='conter'>-{{$t(`￥`)}}{{orderInfo.coupon_price}}</view>
-				</view>
-				<view class='item acea-row row-between' v-if="orderInfo.use_integral > 0">
-					<view>{{$t(`积分抵扣`)}}：</view>
-					<view class='conter'>-{{$t(`￥`)}}{{orderInfo.deduction_price}}</view>
-				</view>
-				<view class='item acea-row row-between' v-if="orderInfo.pay_postage > 0">
-					<view>{{$t(`运费`)}}：</view>
-					<view class='conter'>{{$t(`￥`)}}{{orderInfo.pay_postage}}</view>
-				</view> -->
 			</view>
 		</view>
 		<!-- #ifndef MP -->
@@ -736,28 +728,16 @@
 					status = {};
 				let type = parseInt(_status._type),
 					delivery_type = orderInfo.delivery_type,
-					seckill_id = orderInfo.seckill_id ? parseInt(orderInfo.seckill_id) : 0,
-					bargain_id = orderInfo.bargain_id ? parseInt(orderInfo.bargain_id) : 0,
-					combination_id = orderInfo.combination_id ? parseInt(orderInfo.combination_id) : 0;
+					seckill_id = orderInfo.seckill_id ? parseInt(orderInfo.seckill_id) : 0;
 				status = {
 					type: type == 9 ? -9 : type,
 					class_status: 0
 				};
-				if (type == 1 && combination_id > 0) status.class_status = 1; //查看拼团
 				if (type == 2 && delivery_type == 'express') status.class_status = 2; //查看物流
 				if (type == 2) status.class_status = 3; //确认收货
 				if (type == 4 || type == 0) status.class_status = 4; //删除订单
-				if (!seckill_id && !bargain_id && !combination_id && (type == 3 || type == 4)) status.class_status = 5; //再次购买
+				if (!seckill_id && !orderInfo.type && (type == 3 || type == 4)) status.class_status = 5; //再次购买
 				this.$set(this, 'status', status);
-			},
-			/**
-			 * 去拼团详情
-			 * 
-			 */
-			goJoinPink: function() {
-				uni.navigateTo({
-					url: '/pages/activity/goods_combination_status/index?id=' + this.orderInfo.pink_id,
-				});
 			},
 			/**
 			 * 再此购买

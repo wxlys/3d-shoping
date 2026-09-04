@@ -39,23 +39,12 @@
 							<span class="pictrue_log_class"
 								:class="is_switch === true ? 'pictrue_log_big' : 'pictrue_log'"
 								v-if="item.activity && item.activity.type === '1' && $permission('seckill')">{{$t(`秒杀`)}}</span>
-							<span class="pictrue_log_class"
-								:class="is_switch === true ? 'pictrue_log_big' : 'pictrue_log'"
-								v-if="item.activity && item.activity.type === '2' && $permission('bargain')">{{$t(`砍价`)}}</span>
-							<span class="pictrue_log_class"
-								:class="is_switch === true ? 'pictrue_log_big' : 'pictrue_log'"
-								v-if="item.activity && item.activity.type === '3' && $permission('combination')">{{$t(`拼团`)}}</span>
 						</view>
 						<view class='text' :class='is_switch==true?"":"on"'>
 							<view class='name line2'>{{item.store_name}}</view>
 							<view class='money font-color' :class='is_switch==true?"":"on"'>{{$t(`￥`)}}<text
 									class='num'>{{item.price}}</text></view>
 							<view class='vip acea-row row-between-wrapper' :class='is_switch==true?"":"on"'>
-								<view class='vip-money' v-if="item.vip_price && item.vip_price > 0">
-									{{$t(`￥`)}}{{item.vip_price}}
-									<image src='../../../static/images/vip.png'></image>
-								</view>
-								<view v-else></view>
 								<view>{{$t(`已售`)}} {{item.sales}}{{$t(item.unit_name) || $t(`件`)}}</view>
 							</view>
 						</view>

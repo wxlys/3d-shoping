@@ -635,12 +635,12 @@ export default {
       );
     },
     memberStyleConfig() {
-      return (
+      const configuredStyle =
         Number(
           this.dataConfig.memberStyleConfig &&
             this.dataConfig.memberStyleConfig.tabVal,
-        ) || 0
-      );
+        ) || 0;
+      return [0, 1].includes(configuredStyle) ? configuredStyle : 0;
     },
     menuStyle() {
       return (
@@ -673,7 +673,7 @@ export default {
       return (
         (this.dataConfig.checkboxInfo && this.dataConfig.checkboxInfo.type) ||
         []
-      );
+      ).filter((id) => [5, 6].includes(Number(id)));
     },
     avatarUrl() {
       return this.userInfo.avatar || "";
@@ -681,7 +681,7 @@ export default {
     menuList() {
       return (
         (this.dataConfig.menuConfig && this.dataConfig.menuConfig.list) || []
-      );
+      ).filter((item) => this.isBusinessLink(this.getInfo(item, 1)));
     },
     assetStyle() {
       return this.dataConfig.assetConfig
@@ -691,7 +691,7 @@ export default {
     assetList() {
       return (
         (this.dataConfig.assetConfig && this.dataConfig.assetConfig.list) || []
-      );
+      ).filter((item) => this.isBusinessLink(this.getInfo(item, 1)));
     },
     memberList() {
       return (
@@ -704,7 +704,7 @@ export default {
         (this.dataConfig.rightEntryConfig &&
           this.dataConfig.rightEntryConfig.list) ||
         []
-      );
+      ).filter((item) => this.isBusinessLink(this.getInfo(item, 2)));
     },
     moduleTitleColor() {
       return this.dataConfig.moduleTextColor &&
@@ -1079,14 +1079,8 @@ export default {
     },
     dataList() {
       let list = [
-        { id: 1, name: "余额", key: "money" },
-        { id: 3, name: "优惠券", key: "coupon" },
-        { id: 2, name: "积分", key: "integral" },
         { id: 5, name: "收藏商品", key: "collection" },
         { id: 6, name: "浏览记录", key: "visit" },
-        { id: 8, name: "推广佣金", key: "brokerage" },
-        { id: 9, name: "推广人", key: "spreadCount" },
-        { id: 10, name: "推广订单", key: "spreadOrderCount" },
       ];
       return list
         .filter((item) => this.checkType.indexOf(item.id) != -1)
@@ -1094,6 +1088,27 @@ export default {
     },
   },
   methods: {
+    isBusinessLink(url) {
+      if (!url) return false;
+      const disabledPaths = [
+        "user_coupon",
+        "user_integral",
+        "user_sgin",
+        "user_spread",
+        "promoter",
+        "commission",
+        "user_cash",
+        "user_payment",
+        "user_vip",
+        "vip_",
+        "vip/",
+        "goods_bargain",
+        "goods_combination",
+        "presell",
+        "points_mall",
+      ];
+      return !disabledPaths.some((path) => url.includes(path));
+    },
     radiusFromConfig(cfg) {
       if (!cfg) return "0rpx";
       let type = Number(cfg.type) || 0;
@@ -1136,29 +1151,11 @@ export default {
     handleDataNavigation(item) {
       let url = "";
       switch (item.id) {
-        case 1:
-          url = "/pages/users/user_money/index";
-          break;
-        case 3:
-          url = "/pages/users/user_coupon/index";
-          break;
-        case 2:
-          url = "/pages/users/user_integral/index";
-          break;
         case 5:
           url = "/pages/users/user_goods_collection/index";
           break;
         case 6:
           url = "/pages/users/visit_list/index";
-          break;
-        case 8:
-          url = "/pages/users/user_spread_money/index?type=2";
-          break;
-        case 9:
-          url = "/pages/users/promoter-list/index";
-          break;
-        case 10:
-          url = "/pages/users/promoter-order/index";
           break;
       }
       if (url) {

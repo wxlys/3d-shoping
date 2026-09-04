@@ -261,7 +261,7 @@
                   <text class="price">¥{{ displayInfo.ot_price }}</text>
                 </view>
                 <view
-                  v-if="item.checkList.includes(2) && displayInfo.vip_price"
+                  v-if="false"
                   class="vip-price-wrap"
                 >
                   <text class="badge">SVIP</text>

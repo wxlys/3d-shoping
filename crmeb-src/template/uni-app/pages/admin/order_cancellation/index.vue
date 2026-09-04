@@ -81,15 +81,9 @@ export default {
 		 * 去订单详情
 		 */
 		goOrderDetails: function (id, type) {
-			if (type == 'integral') {
-				uni.navigateTo({
-					url: '/pages/points_mall/integral_order_details?order_id=' + id
-				});
-			} else {
-				uni.navigateTo({
-					url: '/pages/goods/admin_order_detail/index?id=' + id + '&goname=look'
-				});
-			}
+			uni.navigateTo({
+				url: '/pages/goods/admin_order_detail/index?id=' + id + '&goname=look'
+			});
 		},
 		// 立即核销
 		codeChange: function () {

@@ -70,8 +70,8 @@
 				<image src="@/static/images/line.jpg"></image>
 			</view>
 			<view class="mb-16" v-if="isGoodsReturn == false">
-				<view class="nav" v-if="is_gift != 2">
-					<view class="navCon acea-row row-between-wrapper" v-if="!is_gift && orderInfo.is_print != 1">
+				<view class="nav">
+					<view class="navCon acea-row row-between-wrapper" v-if="orderInfo.is_print != 1">
 						<view :class="status.type == 0 || status.type == -9 ? 'on' : ''">{{ $t(`待付款`) }}</view>
 						<view :class="status.type == 1 || status.type == 5 || (orderInfo.is_print == 1 && status.type == 2) ? 'on' : ''">
 							{{ orderInfo.is_print == 1 ? $t(`待取件`) : orderInfo.shipping_type == 1 ? $t(`待发货`) : $t(`待核销`) }}
@@ -80,7 +80,7 @@
 						<view :class="status.type == 3 ? 'on' : ''">{{ $t(`待评价`) }}</view>
 						<view :class="status.type == 4 ? 'on' : ''">{{ $t(`已完成`) }}</view>
 					</view>
-					<view class="navCon acea-row row-between-wrapper" v-else-if="!is_gift">
+					<view class="navCon acea-row row-between-wrapper" v-else>
 						<view :class="status.type == 0 || status.type == -9 ? 'on' : ''">{{ $t(`待付款`) }}</view>
 						<view :class="status.type == 1 || status.type == 2 || status.type == 5 ? 'on' : ''">{{ $t(`待取件`) }}</view>
 						<view :class="status.type == 3 ? 'on' : ''">{{ $t(`待评价`) }}</view>
@@ -88,13 +88,7 @@
 							{{ orderInfo.queue_status == 4 ? $t(`已取消`) : $t(`已完成`) }}
 						</view>
 					</view>
-					<view class="navCon acea-row row-between-wrapper" v-else-if="is_gift !== 2">
-						<view :class="status.type == 0 || status.type == -9 || orderInfo.paid == 1 ? 'on' : ''">{{ $t(`待付款`) }}</view>
-						<view :class="orderInfo.paid == 1 ? 'on' : ''">{{ $t(`待领取`) }}</view>
-						<view :class="orderInfo.gift_uid ? 'on' : ''">{{ $t(`已领取`) }}</view>
-						<view :class="status.type == 4 ? 'on' : ''">{{ $t(`已完成`) }}</view>
-					</view>
-					<view class="progress acea-row row-between-wrapper" v-if="!is_gift && orderInfo.is_print == 1">
+					<view class="progress acea-row row-between-wrapper" v-if="orderInfo.is_print == 1">
 						<view class="iconfont" :class="(status.type == 0 || status.type == -9 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 0 ? 'font-num' : '')"></view>
 						<view class="line" :class="status.type > 0 ? 'bg-color' : ''"></view>
 						<view class="iconfont" :class="(status.type == 1 || status.type == 2 || status.type == 5 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 1 ? 'font-num' : '')"></view>
@@ -103,7 +97,7 @@
 						<view class="line" :class="status.type > 3 && status.type != 5 ? 'bg-color' : ''"></view>
 						<view class="iconfont" :class="(status.type == 4 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 4 && status.type != 5 ? 'font-num' : '')"></view>
 					</view>
-					<view class="progress acea-row row-between-wrapper" v-else-if="!is_gift">
+					<view class="progress acea-row row-between-wrapper" v-else>
 						<view class="iconfont" :class="(status.type == 0 || status.type == -9 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 0 ? 'font-num' : '')"></view>
 						<view class="line" :class="status.type > 0 ? 'bg-color' : ''"></view>
 						<view
@@ -121,38 +115,6 @@
 						<view class="iconfont" :class="(status.type == 3 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 3 && status.type != 5 ? 'font-num' : '')"></view>
 						<view class="line" :class="status.type > 3 && status.type != 5 ? 'bg-color' : ''"></view>
 						<view class="iconfont" :class="(status.type == 4 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 4 && status.type != 5 ? 'font-num' : '')"></view>
-					</view>
-					<view class="progress acea-row row-between-wrapper" v-else-if="is_gift !== 2">
-						<view
-							class="iconfont"
-							:class="(status.type == 0 || status.type == -9 || orderInfo.paid == 1 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 0 ? 'font-num' : '')"
-						></view>
-						<view class="line" :class="orderInfo.paid == 1 ? 'bg-color' : ''"></view>
-						<view
-							class="iconfont"
-							:class="
-								(orderInfo.gift_uid == 0 || orderInfo.paid == 1 ? 'icon-webicon318' : 'icon-yuandianxiao') +
-								' ' +
-								((status.type >= 4 && status.type != 5) || orderInfo.gift_uid == 0 || orderInfo.paid == 1 ? 'font-num' : '')
-							"
-						></view>
-						<view class="line" :class="orderInfo.gift_uid ? 'bg-color' : ''"></view>
-						<view
-							class="iconfont"
-							:class="(orderInfo.gift_uid ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + ((status.type >= 4 && status.type != 5) || orderInfo.gift_uid ? 'font-num' : '')"
-						></view>
-						<view class="line" :class="status.type > 3 && status.type != 5 ? 'bg-color' : ''"></view>
-						<view class="iconfont" :class="(status.type == 4 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 4 && status.type != 5 ? 'font-num' : '')"></view>
-					</view>
-				</view>
-				<view v-if="giftData && is_gift == 2" class="gift-box">
-					<view class="acea-row row-middle user-msg">
-						<image class="avatar mr-12" :src="giftData.avatar" mode=""></image>
-						<text class="nickname">{{ giftData.nickname }} 赠您一份礼物，请查收！</text>
-					</view>
-					<view class="line"></view>
-					<view class="gift-mark" v-if="giftData.gift_mark">
-						{{ giftData.gift_mark }}
 					</view>
 				</view>
 				<!-- <view class="writeOff" v-if="orderInfo.shipping_type == 2 && orderInfo.paid"> -->
@@ -222,7 +184,7 @@
 						{{ $t(`查看位置`) }}
 					</view>
 				</view>
-				<view class="mt-12" v-if="orderInfo.virtual_type == 0 && (is_gift == 0 || is_gift == 2)">
+				<view class="mt-12" v-if="orderInfo.virtual_type == 0">
 					<view class="address" v-if="orderInfo.shipping_type === 1">
 						<view class="name">
 							{{ orderInfo.real_name }}
@@ -243,7 +205,7 @@
 							<view class="iconfont icon-dingwei2" @click.stop="showMaoLocation(system_store)"></view>
 						</view>
 					</view>
-					<view class="line" v-if="orderInfo.shipping_type === 1 && !is_gift">
+					<view class="line" v-if="orderInfo.shipping_type === 1">
 						<image src="@/static/images/line.jpg"></image>
 					</view>
 				</view>
@@ -274,8 +236,6 @@
 				:refund_status="item.refund_status"
 				:delivery_type="item.delivery_type"
 				:is_refund_available="orderInfo.is_refund_available"
-				:is_gift="is_gift"
-				:gift_uid="orderInfo.gift_uid"
 				@confirmOrder="confirmOrder"
 				@openSubcribe="openSubcribe"
 			></orderGoods>
@@ -293,8 +253,6 @@
 				:paid="orderInfo.paid"
 				:virtualType="orderInfo.virtual_type"
 				:is_refund_available="orderInfo.is_refund_available"
-				:is_gift="is_gift"
-				:gift_uid="orderInfo.gift_uid"
 				@openSubcribe="openSubcribe"
 			></orderGoods>
 			<!-- #ifdef H5 || APP-PLUS -->
@@ -317,7 +275,7 @@
 				</button>
 			</div>
 			<!-- #endif -->
-			<view class="wrapper" v-if="isReturn == 1 && (is_gift == 0 || is_gift == 1)">
+			<view class="wrapper" v-if="isReturn == 1">
 				<view class="item acea-row row-between">
 					<view>{{ $t(`申请理由`) }}：</view>
 					<view class="conter">{{ orderInfo.refund_reason }}</view>
@@ -337,7 +295,7 @@
 					</view>
 				</view>
 			</view>
-			<view class="wrapper" v-if="is_gift == 0 || is_gift == 1">
+			<view class="wrapper">
 				<view class="item acea-row row-between">
 					<view>{{ $t(`订单号`) }}：</view>
 					<view class="conter acea-row row-middle row-right">
@@ -397,7 +355,7 @@
 				<view class="copy-text" @click="copyText()">{{ $t(`复制`) }}</view>
 			</view>
 			<!-- 退款订单详情 -->
-			<view class="wrapper" v-if="isGoodsReturn && orderInfo.cartInfo[0].productInfo.virtual_type != 3 && (is_gift == 0 || is_gift == 1)">
+			<view class="wrapper" v-if="isGoodsReturn && orderInfo.cartInfo[0].productInfo.virtual_type != 3">
 				<view class="item acea-row row-between">
 					<view>{{ $t(`收货人`) }}：</view>
 					<view class="conter">{{ orderInfo.real_name }}</view>
@@ -411,7 +369,7 @@
 					<view class="conter">{{ orderInfo.user_address }}</view>
 				</view>
 			</view>
-			<view v-if="orderInfo.status != 0 && (is_gift == 0 || is_gift == 1)">
+			<view v-if="orderInfo.status != 0">
 				<view class="wrapper" v-if="orderInfo.delivery_type == 'express'">
 					<view class="item acea-row row-between">
 						<view>{{ $t(`配送方式`) }}：</view>
@@ -461,47 +419,17 @@
 					</view>
 				</view>
 			</view>
-			<view class="wrapper" v-if="orderInfo.total_price && (is_gift == 0 || is_gift == 1)">
+			<view class="wrapper" v-if="orderInfo.total_price">
 				<view class="item acea-row row-between">
 					<view>{{ $t(`商品总价`) }}：</view>
-					<view class="conter">{{ $t(`￥`) }}{{ (parseFloat(orderInfo.total_price) + parseFloat(orderInfo.vip_true_price)).toFixed(2) }}</view>
+					<view class="conter">{{ $t(`￥`) }}{{ parseFloat(orderInfo.total_price).toFixed(2) }}</view>
 				</view>
 				<view class="item acea-row row-between" v-if="orderInfo.pay_postage > 0">
 					<view>{{ $t(`配送运费`) }}：</view>
 					<view class="conter">{{ $t(`￥`) }}{{ parseFloat(orderInfo.pay_postage).toFixed(2) }}</view>
 				</view>
-				<view v-if="orderInfo.levelPrice > 0" class="item acea-row row-between">
-					<view>{{ $t(`用户等级优惠`) }}：</view>
-					<view class="conter">-{{ $t(`￥`) }}{{ parseFloat(orderInfo.levelPrice).toFixed(2) }}</view>
-				</view>
-				<view v-if="orderInfo.memberPrice > 0" class="item acea-row row-between">
-					<view>{{ $t(`付费会员优惠`) }}：</view>
-					<view class="conter">-{{ $t(`￥`) }}{{ parseFloat(orderInfo.memberPrice).toFixed(2) }}</view>
-				</view>
-				<view v-if="orderInfo.gift_price > 0" class="item acea-row row-between">
-					<view>{{ $t(`礼品附加费用`) }}：</view>
-					<view class="conter">-{{ $t(`￥`) }}{{ parseFloat(orderInfo.gift_price).toFixed(2) }}</view>
-				</view>
-				<view class="item acea-row row-between" v-if="orderInfo.coupon_price > 0">
-					<view>{{ $t(`优惠券抵扣`) }}：</view>
-					<view class="conter">-{{ $t(`￥`) }}{{ parseFloat(orderInfo.coupon_price).toFixed(2) }}</view>
-				</view>
-				<view class="item acea-row row-between" v-if="orderInfo.use_integral > 0">
-					<view>{{ $t(`积分抵扣`) }}：</view>
-					<view class="conter">-{{ $t(`￥`) }}{{ parseFloat(orderInfo.deduction_price).toFixed(2) }}</view>
-				</view>
-				<view class="actualPay acea-row row-right" v-if="!orderInfo.help_info.help_status">
+				<view class="actualPay acea-row row-right">
 					{{ $t(`实付款`) }}：
-					<text class="money font-color">{{ $t(`￥`) }}{{ parseFloat(orderInfo.pay_price).toFixed(2) }}</text>
-				</view>
-				<view class="actualPay acea-row row-right" v-else>
-					<view class="pay-people">
-						<image :src="orderInfo.help_info.pay_avatar" mode="代付头像"></image>
-						<view class="pay-nickname">
-							{{ orderInfo.help_info.pay_nickname || '' }}
-						</view>
-					</view>
-					{{ $t(`总代付`) }}：
 					<text class="money font-color">{{ $t(`￥`) }}{{ parseFloat(orderInfo.pay_price).toFixed(2) }}</text>
 				</view>
 			</view>
@@ -536,14 +464,10 @@
 					>
 						{{ $t(`查看物流`) }}
 					</navigator>
-					<view class="bnt bg-color" v-if="orderInfo.type == 3 && orderInfo.refund_type == 0 && orderInfo.paid" @tap="goJoinPink">
-						{{ $t(`查看拼团`) }}
-					</view>
 					<view class="bnt bg-color" v-if="status.class_status == 3 && !split.length" @click="confirmOrder()">
 						{{ $t(`确认收货`) }}
 					</view>
-					<view class="bnt bg-color" v-if="orderInfo.paid == 1 && !is_gift && isReturn != 1" @tap="goOrderConfirm">{{ $t(`再次购买`) }}</view>
-					<view class="bnt bg-color" v-if="orderInfo.paid == 1 && is_gift != 0 && orderInfo.gift_uid == 0" @tap="giftModalShow = true">{{ $t(`送给好友`) }}</view>
+					<view class="bnt bg-color" v-if="orderInfo.paid == 1 && isReturn != 1" @tap="goOrderConfirm">{{ $t(`再次购买`) }}</view>
 					<view
 						class="bnt bg-color"
 						v-if="[1, 2, 4].includes(orderInfo.refund_type) && !orderInfo.is_cancel && orderInfo.type != 3 && orderInfo.refund_status != 2"
@@ -587,13 +511,8 @@
 		<!-- <authorize @onLoadFun="onLoadFun" :isAuto="isAuto" :isShowAuth="isShowAuth" @authColse="authColse"></authorize> -->
 		<!-- #endif -->
 		<invoiceModal :aleartStatus="aleartStatus" :invoiceData="invoiceData" @close="aleartStatus = false"></invoiceModal>
-		<view class="mask invoice-mask" v-if="aleartStatus || giftModalShow" @click="aleartStatus = false"></view>
+		<view class="mask invoice-mask" v-if="aleartStatus" @click="aleartStatus = false"></view>
 		<view class="mask more-mask" v-if="moreBtn" @click="moreBtn = false"></view>
-		<giftModal :aleartStatus="giftModalShow" :giftData="giftModalData" @shareH5="shareH5" @close="giftModalShow = false"></giftModal>
-		<canvas class="canvas" canvas-id="posterCanvas"></canvas>
-		<view class="share-box" v-if="H5ShareBox">
-			<image :src="imgHost + '/statics/images/share-info.png'" @click="H5ShareBox = false"></image>
-		</view>
 		<invoice-picker
 			:inv-show="invShow"
 			:is-special="special_invoice"
@@ -626,17 +545,14 @@ import authorize from '@/components/Authorize';
 import colors from '@/mixins/color';
 import invoicePicker from '../components/invoicePicker/index.vue';
 import invoiceModal from '../components/invoiceModal/index.vue';
-import giftModal from '../order_pay_status/components/giftModal.vue';
 import zbCode from '@/components/zb-code/zb-code.vue';
 import { HTTP_REQUEST_URL } from '@/config/app.js';
-import { userShare } from '@/api/user.js';
 export default {
 	components: {
 		home,
 		invoicePicker,
 		invoiceModal,
 		orderGoods,
-		giftModal,
 		zbCode,
 		// #ifdef MP
 		authorize
@@ -674,7 +590,6 @@ export default {
 			pid: 0, //上级订单ID
 			split: [], //分单商品
 			orderInfo: {
-				help_info: {},
 				system_store: {},
 				_status: {}
 			}, //订单详情
@@ -683,8 +598,6 @@ export default {
 			status: {}, //订单底部按钮状态
 			refund_close: false,
 			isClose: false,
-			H5ShareBox: false,
-			giftModalShow: false,
 			payMode: [
 				{
 					name: this.$t(`微信支付`),
@@ -702,21 +615,6 @@ export default {
 					payStatus: true
 				},
 				// #endif
-				{
-					name: this.$t(`余额支付`),
-					icon: 'icon-yuezhifu',
-					value: 'yue',
-					title: this.$t(`可用余额`),
-					number: 0,
-					payStatus: true
-				},
-				{
-					name: this.$t(`好友代付`),
-					icon: 'icon-haoyoudaizhifu',
-					value: 'friend',
-					title: this.$t(`找微信好友支付`),
-					payStatus: 1
-				},
 				{
 					name: this.$t(`通联支付`),
 					icon: 'icon-tonglianzhifu1',
@@ -745,10 +643,6 @@ export default {
 			userInfo: {},
 			isReturn: '',
 			urlQuery: '',
-			is_gift: 0, // 0正常商品 || 无人领取   1 购买者   2领取人
-			giftData: null,
-			giftModalData: null,
-			mpGiftImg: HTTP_REQUEST_URL + '/statics/images/gift_share.jpg'
 		};
 	},
 	computed: mapGetters(['isLogin']),
@@ -817,33 +711,6 @@ export default {
 
 		// #endif
 	},
-	/**
-	 * 用户点击右上角分享
-	 */
-	// #ifdef MP
-	onShareAppMessage: function () {
-		let that = this;
-		userShare();
-		return {
-			title: that.giftModalData.gift_mark || '',
-			imageUrl: that.mpGiftImg || '',
-			path: '/pages/goods/receive_gift/index?id=' + this.giftModalData.id + '&spid=' + this.$store.state.app.uid
-		};
-	},
-	onShareTimeline() {
-		let that = this;
-		userShare();
-		return {
-			title: that.giftModalData.gift_mark,
-			query: {
-				id: that.id,
-				spid: that.uid || 0
-			},
-			path: '/pages/goods/receive_gift/index?id=' + this.giftModalData.id + '&spid=' + this.$store.state.app.uid,
-			imageUrl: that.mpGiftImg
-		};
-	},
-	// #endif
 	methods: {
 		fmtTime(ts) {
 			if (!ts) return "";
@@ -851,26 +718,8 @@ export default {
 			const p = (n) => (n < 10 ? "0" + n : "" + n);
 			return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 		},
-		// #ifdef H5
-		// 微信分享；
-		setOpenShare: function () {
-			let that = this;
-			if (that.$wechat.isWeixin()) {
-				let configAppMessage = {
-					desc: that.giftModalData.gift_mark,
-					title: that.giftModalData.title,
-					link: window.location.protocol + '//' + window.location.host + '/pages/goods/receive_gift/index?id=' + that.giftModalData.id + '&spid=' + that.$store.state.app.uid,
-					imgUrl: that.mpGiftImg
-				};
-				that.$wechat.wechatEvevt(['updateAppMessageShareData', 'updateTimelineShareData', 'onMenuShareAppMessage', 'onMenuShareTimeline'], configAppMessage);
-			}
-		},
-		// #endif
 		qrR(res) {
 			this.codeSrc = res;
-		},
-		shareH5() {
-			this.H5ShareBox = true;
 		},
 		cancelRefundOrder(orderId) {
 			let that = this;
@@ -1006,16 +855,6 @@ export default {
 			let that = this;
 			getUserInfo().then((res) => {
 				that.userInfo = res.data;
-				// #ifdef H5
-				that.payMode[2].number = res.data.now_money;
-				// #endif
-				// #ifdef APP-PLUS
-				that.payMode[2].number = res.data.now_money;
-				// #endif
-				// #ifdef MP
-				that.payMode[1].number = res.data.now_money;
-				// #endif
-				that.$set(that, 'payMode', that.payMode);
 			});
 		},
 		/**
@@ -1060,34 +899,6 @@ export default {
 					that.$set(that, 'evaluate', _type == 3 ? 3 : 0);
 					that.$set(that, 'system_store', res.data.system_store);
 					that.$set(that, 'invoiceData', res.data.invoice);
-					if (res.data.is_gift) {
-						let giftStatus = res.data.gift_uid === this.$store.state.app.uid;
-						that.$set(that, 'is_gift', giftStatus ? 2 : 1);
-						uni.setNavigationBarTitle({
-							title: '礼物详情'
-						});
-						this.giftData = {
-							avatar: res.data.avatar,
-							gift_mark: res.data.gift_mark,
-							nickname: res.data.nickname
-						};
-						this.giftModalData = {
-							image: res.data.cartInfo[0].productInfo.image,
-							title: res.data.cartInfo[0].productInfo.store_name,
-							message: res.data.gift_mark,
-							id: res.data.id,
-							avatar: res.data.avatar,
-							nickname: res.data.nickname,
-							gift_mark: res.data.gift_mark,
-							code: res.data.gift_code
-						};
-						//#ifdef H5
-						that.setOpenShare();
-						//#endif
-					} 
-					if(!res.data.is_gift || this.is_gift == 2) {
-						uni.hideShareMenu();
-					}
 					if (that.invoiceData) {
 						that.invoiceData.pay_price = res.data.pay_price;
 					}
@@ -1123,12 +934,6 @@ export default {
 						}
 						if (item.value == 'alipay') {
 							item.payStatus = res.data.ali_pay_status ? true : false;
-						}
-						if (item.value == 'yue') {
-							item.payStatus = res.data.yue_pay_status == 1 ? true : false;
-						}
-						if (item.value == 'friend') {
-							item.payStatus = res.data.friend_pay_status == 1 ? true : false;
 						}
 						if (item.value == 'allinpay') {
 							item.payStatus = res.data.pay_allin_open == 1 ? true : false;
@@ -1289,29 +1094,16 @@ export default {
 				status = {};
 			let type = parseInt(_status._type),
 				delivery_type = orderInfo.delivery_type,
-				seckill_id = orderInfo.seckill_id ? parseInt(orderInfo.seckill_id) : 0,
-				bargain_id = orderInfo.bargain_id ? parseInt(orderInfo.bargain_id) : 0,
-				discount_id = orderInfo.discount_id ? parseInt(orderInfo.discount_id) : 0,
-				combination_id = orderInfo.combination_id ? parseInt(orderInfo.combination_id) : 0;
+				seckill_id = orderInfo.seckill_id ? parseInt(orderInfo.seckill_id) : 0;
 			status = {
 				type: type == 9 ? -9 : type,
 				class_status: 0
 			};
-			if (type == 1 && combination_id > 0) status.class_status = 1; //查看拼团
 			if (type == 2 && delivery_type == 'express') status.class_status = 2; //查看物流
 			if (type == 2) status.class_status = 3; //确认收货
 			if (type == 4 || type == 0) status.class_status = 4; //删除订单
-			if (!seckill_id && !bargain_id && !combination_id && !discount_id && !orderInfo.type && (type == 3 || type == 4)) status.class_status = 5; //再次购买
+			if (!seckill_id && !orderInfo.type && (type == 3 || type == 4)) status.class_status = 5; //再次购买
 			this.$set(this, 'status', status);
-		},
-		/**
-		 * 去拼团详情
-		 *
-		 */
-		goJoinPink: function () {
-			uni.navigateTo({
-				url: '/pages/activity/goods_combination_status/index?id=' + this.orderInfo.pink_id
-			});
 		},
 		/**
 		 * 再此购买
@@ -2510,51 +2302,5 @@ export default {
 .upload .pictrue image {
 	width: 100%;
 	height: 100%;
-}
-.gift-box {
-	background: #ffffff;
-	margin: 20rpx 0;
-	.user-msg {
-		padding: 28rpx 30rpx;
-	}
-	image {
-		width: 36rpx;
-		height: 36rpx;
-		border-radius: 70rpx 70rpx 70rpx 70rpx;
-		border: 2rpx solid #ffffff;
-	}
-	.nickname {
-		font-weight: 400;
-		font-size: 28rpx;
-		color: #ae5a2a;
-	}
-	.gift-mark {
-		border-top: 1px solid #f0f0f0;
-		font-weight: 400;
-		font-size: 28rpx;
-		color: #333333;
-		padding: 28rpx 30rpx;
-	}
-}
-.share-box {
-	z-index: 1000;
-	position: fixed;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-
-	image {
-		width: 100%;
-		height: 100%;
-	}
-}
-.canvas {
-	width: 750rpx;
-	height: 1108rpx;
-	z-index: 9999;
-	position: absolute;
-	bottom: 40000rpx;
-	right: 30000rpx;
 }
 </style>

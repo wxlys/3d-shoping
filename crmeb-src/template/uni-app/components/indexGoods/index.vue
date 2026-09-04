@@ -8,8 +8,6 @@
 						<view class="info">
 							<view class="title line2">
 								<text class="tag" v-if="item.activity && item.activity.type === '1' && $permission('seckill')">{{$t(`秒杀`)}}</text>
-								<text class="tag" v-if="item.activity && item.activity.type === '2' && $permission('bargain')">{{$t(`砍价`)}}</text>
-								<text class="tag" v-if="item.activity && item.activity.type === '3' && $permission('combination')">{{$t(`拼团`)}}</text>
 								<text class="tag" v-if="item.checkCoupon">{{$t(`券`)}}</text>
 								{{ item.store_name }}
 							</view>

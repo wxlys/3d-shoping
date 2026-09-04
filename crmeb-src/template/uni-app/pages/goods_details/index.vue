@@ -63,17 +63,14 @@
             :replyCount="replyCount"
             :replyChance="replyChance"
             :productId="id"
-            :couponList="couponList"
             :activity="activity"
             :attr="attr"
             :attrTxt="attrTxt"
             :attrValue="attrValue"
-            :isShowPaidVip="isShowPaidVip"
             @bindSortId="bindSortId"
             @changeSpec="onChangeSpecFromPageDesign"
             @showSpecModal="onShowSpecModalFromPageDesign"
             @share="listenerActionSheet"
-            @showCoupon="couponTap"
             @openModal="openModal"
             @goActivity="goActivity"
           ></PageDesign>
@@ -89,7 +86,6 @@
         :CartCount="CartCount"
         :noGoods="noGoods"
         :attr="attr"
-        :presale_pay_status="presale_pay_status"
         :animated="animated"
         @setCollect="setCollect"
         @goCart="goCart"
@@ -119,7 +115,6 @@
         @attrVal="attrVal"
         @iptCartNum="iptCartNum"
         id="product-window"
-        :is_vip="is_vip"
         @getImg="showImg"
         :is_virtual="storeInfo.is_virtual"
       ></productWindow>
@@ -133,14 +128,6 @@
         ref="cusSwiperImg"
         :list="storeInfo.slider_image"
       ></swiperPrevie>
-      <couponListWindow
-        :coupon="coupon"
-        v-if="coupon"
-        @ChangCouponsClone="ChangCouponsClone"
-        @ChangCoupons="ChangCoupons"
-        @ChangCouponsUseState="ChangCouponsUseState"
-        @tabCouponType="tabCouponType"
-      ></couponListWindow>
       <!-- 分享按钮 -->
       <view
         class="generate-posters acea-row row-middle"
@@ -272,14 +259,13 @@ import {
   realPrice,
 } from "@/api/store.js";
 import { getUserInfo, userShare } from "@/api/user.js";
-import { getCoupons, getThemeInfo } from "@/api/api.js";
+import { getThemeInfo } from "@/api/api.js";
 import { getCartCounts } from "@/api/order.js";
 import { toLogin } from "@/libs/login.js";
 import { mapGetters } from "vuex";
 
 import cusPreviewImg from "@/components/cusPreviewImg/index.vue";
 import swiperPrevie from "@/components/cusPreviewImg/swiperPrevie.vue";
-import couponListWindow from "@/components/couponListWindow";
 import productWindow from "@/components/productWindow";
 import shareRedPackets from "@/components/shareRedPackets";
 import kefuIcon from "@/components/kefuIcon";
@@ -303,7 +289,6 @@ import PageDesign from "@/subpackage/diyComponents/pageDesign.vue";
 import productBottom from "@/subpackage/diyComponents/productBottom.vue";
 export default {
   components: {
-    couponListWindow,
     productWindow,
     shareRedPackets,
     kefuIcon,
@@ -337,14 +322,7 @@ export default {
       showSkeleton: true, //骨架屏显示隐藏
       isNodes: 0, //控制什么时候开始抓取元素节点,只要数值改变就重新抓取
       Active: false,
-      presale_pay_status: 1,
       //属性是否打开
-      coupon: {
-        coupon: false,
-        type: -1,
-        list: [],
-        count: [],
-      },
       showAnimate: false,
       showMenuIcon: false,
       attrTxt: this.$t(`请选择`), //属性页面提示
@@ -355,7 +333,6 @@ export default {
       reply: [], //评论列表
       storeInfo: {}, //商品详情
       productValue: [], //系统属性
-      couponList: [], //优惠券
       cart_num: 1, //购买数量
       isAuto: false, //没有授权的不会自动授权
       isShowAuth: false, //是否隐藏授权
@@ -392,15 +369,12 @@ export default {
       scrollY: 0,
       returnShow: true, //判断顶部返回是否出现
       diff: "",
-      is_money_level: 1,
-      is_vip: 0, //是否是会员
       navbarRight: 0,
       homeTop: 20,
       routineContact: 0,
       skuArr: [],
       selectSku: {},
       currentPage: false,
-      svip_price_open: 1,
       is_gift: 0, // 是否支持送礼
       isGiftOrder: 0,
       realPriceData: {
@@ -412,19 +386,11 @@ export default {
   },
   computed: {
     ...mapGetters(["isLogin", "cartNum"]),
-    isShowPaidVip() {
-      let s =
-        !this.is_money_level &&
-        this.storeInfo.vip_price &&
-        this.storeInfo.is_vip;
-      return !!s;
-    },
   },
   watch: {
     isLogin: {
       handler: function (newV, oldV) {
         if (newV == true) {
-          this.getCouponList();
           this.getCartCount();
           this.downloadFilePromotionCode();
           // this.ShareInfo();
@@ -681,23 +647,9 @@ export default {
      *去商品详情页
      */
     goDetail(item) {
-      if (item.activity.length == 0) {
+      if (!item.activity || item.activity.length == 0) {
         uni.redirectTo({
           url: "/pages/goods_details/index?id=" + item.id,
-        });
-        return;
-      }
-      // 砍价
-      if (item.activity && item.activity.type == 2) {
-        uni.redirectTo({
-          url: `/pages/activity/goods_bargain_details/index?id=${item.activity.id}&bargain=${this.uid}`,
-        });
-        return;
-      }
-      // 拼团
-      if (item.activity && item.activity.type == 3) {
-        uni.redirectTo({
-          url: `/pages/activity/goods_combination_details/index?id=${item.activity.id}`,
         });
         return;
       }
@@ -708,14 +660,14 @@ export default {
         });
         return;
       }
+      uni.redirectTo({
+        url: "/pages/goods_details/index?id=" + item.id,
+      });
     },
     // 微信登录回调
     onLoadFun: function (e) {
       // this.getUserInfo();
       // this.get_product_collect();
-    },
-    ChangCouponsClone: function () {
-      this.$set(this.coupon, "coupon", false);
     },
     /*
      * 获取用户信息
@@ -724,7 +676,6 @@ export default {
       let that = this;
       getUserInfo().then((res) => {
         that.$set(that, "uid", res.data.uid);
-        that.$set(that, "is_money_level", res.data.is_money_level);
       });
     },
     /**
@@ -831,16 +782,6 @@ export default {
       });
     },
     /**
-     * 领取完毕移除当前页面领取过的优惠券展示
-     */
-    ChangCoupons: function (e) {
-      let coupon = e;
-      let couponList = this.$util.ArrayRemove(this.couponList, "id", coupon.id);
-      this.$set(this, "couponList", couponList);
-      this.getCouponList();
-    },
-
-    /**
      * 获取产品详情
      *
      */
@@ -857,17 +798,11 @@ export default {
           let good_list = res.data.good_list || [];
           this.is_gift = res.data.storeInfo.is_gift;
           that.$set(that, "storeInfo", storeInfo);
-          that.$set(
-            that,
-            "presale_pay_status",
-            res.data.storeInfo.presale_pay_status
-          ); // 1未开始; 2进行中; 3已结束
-          that.$set(that, "reply", res.data.reply ? [res.data.reply] : []);
+			that.$set(that, "reply", res.data.reply ? [res.data.reply] : []);
           that.$set(that, "replyCount", res.data.replyCount);
           that.$set(that, "replyChance", res.data.replyChance);
           that.$set(that.attr, "productAttr", res.data.productAttr);
           that.$set(that, "productValue", res.data.productValue);
-          that.$set(that, "is_vip", res.data.storeInfo.is_vip);
           that.$set(that.sharePacket, "priceName", res.data.priceName);
           that.$set(
             that.sharePacket,
@@ -902,7 +837,6 @@ export default {
             "activity",
             res.data.activity ? res.data.activity : []
           );
-          that.$set(that, "couponList", res.data.coupons);
           that.$set(
             that,
             "routineContact",
@@ -922,7 +856,6 @@ export default {
             that.$util.$h.Sub(storeInfo.price, storeInfo.vip_price)
           );
           that.$set(that, "storeImage", that.storeInfo.image);
-          that.$set(that, "svip_price_open", res.data.svip_price_open);
           if (that.isLogin) {
             that.getUserInfo();
           }
@@ -1056,60 +989,6 @@ export default {
       }
     },
     /**
-     * 获取优惠券
-     *
-     */
-    getCouponList(type) {
-      let that = this,
-        obj = {
-          page: 1,
-          limit: 20,
-          product_id: that.id,
-        };
-      if (type !== undefined || type !== null) {
-        obj.type = type;
-      }
-      getCoupons(obj).then((res) => {
-        that.$set(that.coupon, "count", res.data.count);
-        if (type === undefined || type === null) {
-          let count = [...that.coupon.count],
-            indexs = "";
-          let index = count.findIndex((item) => item);
-          let delCount = that.coupon.count,
-            newDelCount = [];
-          let countIndex = 0;
-          delCount.forEach((item, index) => {
-            if (item === 0) {
-              countIndex = index;
-            } else {
-              newDelCount.push(item);
-            }
-          });
-          if (newDelCount.length == 3) {
-            indexs = 2;
-          } else if (newDelCount.length == 2) {
-            if (countIndex === 2) {
-              indexs = 1;
-            } else {
-              indexs = 2;
-            }
-          } else {
-            indexs = delCount.findIndex((item) => item === count[index]);
-          }
-          that.$set(that.coupon, "type", indexs);
-          that.getCouponList(indexs);
-        } else {
-          that.$set(that.coupon, "list", res.data.list);
-        }
-      });
-    },
-    ChangCouponsUseState(index) {
-      let that = this;
-      that.coupon.list[index].is_use++;
-      // that.$set(that.coupon, "list", that.coupon.list);
-      that.$set(that.coupon, "coupon", false);
-    },
-    /**
      *
      *
      * 收藏商品
@@ -1172,31 +1051,10 @@ export default {
     openModal(ref) {
       this.$refs[ref].isShow = true;
     },
-    /**
-     * 打开优惠券插件
-     */
-    couponTap: function () {
-      let that = this;
-      if (that.isLogin === false) {
-        toLogin();
-      } else {
-        // this.$refs.proSwiper.videoIsPause();
-        that.getCouponList();
-        that.$set(that.coupon, "coupon", true);
-      }
-    },
     goActivity(item) {
       if (item.type === "1" && this.$permission("seckill")) {
         uni.navigateTo({
           url: `/pages/activity/goods_seckill_details/index?id=${item.id}&time_id=${item.time_id}`,
-        });
-      } else if (item.type === "2" && this.$permission("bargain")) {
-        uni.navigateTo({
-          url: `/pages/activity/goods_bargain_details/index?id=${item.id}&bargain=${this.uid}`,
-        });
-      } else if (item.type === "3" && this.$permission("combination")) {
-        uni.navigateTo({
-          url: `/pages/activity/goods_combination_details/index?id=${item.id}`,
         });
       }
     },
@@ -1476,10 +1334,6 @@ export default {
       }
     },
     //#endif
-    tabCouponType: function (type) {
-      this.$set(this.coupon, "type", type);
-      this.getCouponList(type);
-    },
     //点击sku图片打开轮播图
     showImg(index) {
       this.$refs.cusPreviewImg.open(this.selectSku.suk);

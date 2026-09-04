@@ -5,29 +5,15 @@
         <!-- Activity -->
         <view
           class="item"
-          v-if="checkList.includes(0) && (couponList.length || activity.length)"
+          v-if="checkList.includes(0) && businessActivity.length"
         >
           <view class="label" :style="{ color: titleColor }">{{
             $t("活动")
           }}</view>
           <view class="content" @click="activityTap">
             <view class="tags-wrapper">
-              <!-- Coupon -->
-              <view
-                class="tag-item"
-                v-if="couponList.length"
-                :style="tagStyle"
-                @click.stop="activityTap"
-              >
-                <text class="iconfont icon-ic_sale"></text>
-                {{ $t("优惠券")
-                }}<text
-                  class="iconfont icon-you2"
-                  :style="{ color: activityColor }"
-                ></text>
-              </view>
               <!-- Activity -->
-              <block v-for="(item, index) in activity" :key="index">
+              <block v-for="(item, index) in businessActivity" :key="index">
                 <view
                   class="tag-item"
                   v-if="item.type === '1'"
@@ -36,32 +22,6 @@
                 >
                   <text class="iconfont icon-miaosha1"></text>
                   {{ $t("秒杀")
-                  }}<text
-                    class="iconfont icon-you2"
-                    :style="{ color: activityColor }"
-                  ></text>
-                </view>
-                <view
-                  class="tag-item"
-                  v-if="item.type === '2'"
-                  :style="tagStyle"
-                  @click.stop="goActivity(item)"
-                >
-                  <text class="iconfont icon-yaoqinghaoyou1"></text>
-                  {{ $t("砍价")
-                  }}<text
-                    class="iconfont icon-you2"
-                    :style="{ color: activityColor }"
-                  ></text>
-                </view>
-                <view
-                  class="tag-item"
-                  v-if="item.type === '3'"
-                  :style="tagStyle"
-                  @click.stop="goActivity(item)"
-                >
-                  <text class="iconfont icon-wodetuandui"></text>
-                  {{ $t("拼团")
                   }}<text
                     class="iconfont icon-you2"
                     :style="{ color: activityColor }"
@@ -177,10 +137,6 @@ export default {
       type: Object,
       default: () => ({}),
     },
-    couponList: {
-      type: Array,
-      default: () => [],
-    },
     activity: {
       type: Array,
       default: () => [],
@@ -206,6 +162,9 @@ export default {
       return this.dataConfig.checkBoxConfig
         ? this.dataConfig.checkBoxConfig.type
         : [];
+    },
+    businessActivity() {
+      return (this.activity || []).filter((item) => item.type === "1");
     },
     titleColor() {
       return this.dataConfig.titleColor
@@ -251,10 +210,7 @@ export default {
   },
   methods: {
     activityTap() {
-      if (this.couponList.length) {
-        this.$emit("showCoupon");
-      } else if (this.activity.length) {
-      }
+      if (this.businessActivity.length) this.goActivity(this.businessActivity[0]);
     },
     goActivity(item) {
       this.$emit("goActivity", item);

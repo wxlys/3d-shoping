@@ -21,10 +21,7 @@
 					<view class="iconfont" :class="item.icon"></view>
 					<view class="text">
 						<view class="name">{{$t(item.name)}}</view>
-						<view class="info" v-if="item.value == 'yue'">
-							{{$t(item.title)}} <span class="money">{{$t(`￥`)}}{{ item.number }}</span>
-						</view>
-						<view class="info" v-else>{{$t(item.title)}}</view>
+						<view class="info">{{$t(item.title)}}</view>
 					</view>
 				</view>
 				<view class="iconfont" :class="active==index?'icon-xuanzhong11 font-num':'icon-weixuan'"></view>
@@ -74,24 +71,11 @@
 						payStatus: 1,
 					},
 					{
-						"name": this.$t(`余额支付`),
-						"icon": "icon-yuezhifu",
-						value: 'yue',
-						title: this.$t(`可用余额`),
-						payStatus: 1,
-					},
-					{
 						"name": this.$t(`线下支付`),
 						"icon": "icon-yuezhifu1",
 						value: 'offline',
 						title: this.$t(`使用线下付款`),
 						payStatus: 2,
-					}, {
-						"name": this.$t(`好友代付`),
-						"icon": "icon-haoyoudaizhifu",
-						value: 'friend',
-						title: this.$t(`找微信好友支付`),
-						payStatus: 1,
 					}
 				],
 				orderId: 0,
@@ -108,8 +92,6 @@
 					msg: ''
 				},
 				formContent: '',
-				oid: 0,
-				is_gift: 0
 			}
 		},
 		watch: {
@@ -154,7 +136,6 @@
 				} else {
 					if (extraData.code == 'success') {
 						let url = `/pages/goods/order_pay_status/index?order_id=${this.orderId}&msg=${this.jumpData.msg}&type=3&totalPrice=${this.payPriceShow}`
-						if(this.is_gift) url += '&is_gift=1'
 						this.$util.Tips({
 							title: this.$t(`支付成功`),
 							icon: 'success'
@@ -189,15 +170,11 @@
 					//#ifdef MP
 					this.cartArr[1].payStatus = 0;
 					//#endif
-					//余额支付是否开启
-					this.cartArr[2].payStatus = res.data.yue_pay_status
 					if (res.data.offline_pay_status) {
-						this.cartArr[3].payStatus = 1
+						this.cartArr[2].payStatus = 1
 					} else {
-						this.cartArr[3].payStatus = 0
+						this.cartArr[2].payStatus = 0
 					}
-					//好友代付是否开启
-					this.cartArr[4].payStatus = res.data.friend_pay_status || 0;
 					this.getCashierOrder()
 				}).catch(err => {
 					uni.hideLoading();
@@ -215,10 +192,6 @@
 					this.payPostage = res.data.pay_postage
 					this.offlinePostage = res.data.offline_postage
 					this.invalidTime = res.data.invalid_time
-					this.cartArr[2].number = res.data.now_money;
-					this.number = Number(res.data.now_money) || 0;
-					this.oid = res.data.oid
-					this.is_gift = res.data.is_gift
 					uni.hideLoading();
 				}).catch(err => {
 					uni.hideLoading();
@@ -268,47 +241,29 @@
 				if (!that.orderId) return that.$util.Tips({
 					title: that.$t(`请选择要支付的订单`)
 				});
-				if (paytype == 'yue' && parseFloat(number) < parseFloat(that.payPriceShow)) return that.$util.Tips({
-					title: that.$t(`余额不足`)
-				});
 				uni.showLoading({
 					title: that.$t(`支付中`)
 				});
-				if (paytype == 'friend' && that.orderId) {
-					uni.hideLoading();
-					return uni.navigateTo({
-						url: '/pages/users/payment_on_behalf/index?oid=' + that.oid + '&spread=' +
-							this.$store.state.app.uid,
-						success: res => {},
-						fail: () => {},
-						complete: () => {}
-					});
-				}
 				orderPay({
 					uni: that.orderId,
 					paytype: paytype,
-					type: that.friendPay ? 1 : 0,
+					type: 0,
 					// #ifdef H5
 					quitUrl: location.port ? location.protocol + '//' + location.hostname + ':' + location
 						.port +
 						'/pages/goods/order_details/index?order_id=' + this.orderId : location.protocol +
 						'//' + location.hostname +
-						'/pages/goods/order_details/index?order_id=' + this.orderId
+						'/pages/goods/order_details/index?order_id=' + this.orderId,
 					// #endif
 					// #ifdef APP-PLUS
-					quitUrl: '/pages/goods/order_details/index?order_id=' + this.orderId
+					quitUrl: '/pages/goods/order_details/index?order_id=' + this.orderId,
 					// #endif
 				}).then(res => {
 					let goPage = '/pages/goods/order_pay_status/index?order_id=' + this.orderId + '&msg=' + res.msg + '&type=3' + '&totalPrice=' + this.payPriceShow
-					if(this.is_gift) goPage += '&is_gift=1'
 					let status = res.data.status,
 						orderId = res.data.result.order_id,
 						jsConfig = res.data.result.jsConfig,
-						goPages = goPage,
-						friendPay = '/pages/users/payment_on_behalf/index?order_id=' + this.orderId +
-						'&spread=' +
-						this
-						.$store.state.app.uid
+						goPages = goPage
 					switch (status) {
 						case 'ORDER_EXIST':
 						case 'EXTEND_ORDER':
@@ -369,26 +324,13 @@
 							break;
 						case 'SUCCESS':
 							uni.hideLoading();
-							if (paytype !== 'friend') {
-								return that.$util.Tips({
-									title: res.msg,
-									icon: 'success'
-								}, {
-									tab: 4,
-									url: goPages
-								});
-							} else {
-								return that.$util.Tips({
-									title: res.msg,
-									icon: 'success'
-								}, {
-									tab: 4,
-									url: friendPay
-								});
-							}
-
-
-							break;
+							return that.$util.Tips({
+								title: res.msg,
+								icon: 'success'
+							}, {
+								tab: 4,
+								url: goPages
+							});
 						case 'WECHAT_PAY':
 							that.toPay = true;
 							// #ifdef MP
@@ -407,16 +349,6 @@
 								paySign: jsConfig.paySign,
 								success: function(res) {
 									uni.hideLoading();
-									if (that.BargainId || that.combinationId || that.pinkId ||
-										that
-										.seckillId || that.discountId)
-										return that.$util.Tips({
-											title: that.$t(`支付成功`),
-											icon: 'success'
-										}, {
-											tab: 4,
-											url: goPages
-										});
 									return that.$util.Tips({
 										title: that.$t(`支付成功`),
 										icon: 'success'
@@ -739,10 +671,6 @@
 			color: #00aaea;
 		}
 
-		.payment .item .left .iconfont.icon-yuezhifu {
-			color: #ff9900;
-		}
-
 		.payment .item .left .iconfont.icon-yuezhifu1 {
 			color: #eb6623;
 		}
@@ -754,10 +682,6 @@
 		.payment .item .iconfont {
 			font-size: 40rpx;
 			color: #ccc;
-		}
-
-		.icon-haoyoudaizhifu {
-			color: #F34C3E !important;
 		}
 
 		.btn {
