@@ -40,13 +40,43 @@
         </router-link>
       </el-card>
     </el-col>
-    <el-col v-bind="grid" class="ivu-mb" v-auth="['setting-sms']">
+    <el-col v-bind="grid" class="ivu-mb" v-auth="['admin-store-storeCategory-index']">
       <el-card shadow="never">
-        <router-link :to="{ path: $routeProStr + '/setting/sms/sms_config/index' }">
+        <router-link :to="{ path: $routeProStr + '/product/product_classify' }">
           <div class="icon">
-            <i class="iconfont iconduanxinpeizhi" style="color: #f7ba1e"></i>
+            <i class="iconfont iconfenlei" style="color: #f7ba1e"></i>
           </div>
-          <p>短信配置</p>
+          <p>商品分类</p>
+        </router-link>
+      </el-card>
+    </el-col>
+    <el-col v-bind="grid" class="ivu-mb" v-auth="['admin-order-print-inquiry-index']">
+      <el-card shadow="never">
+        <router-link :to="{ path: $routeProStr + '/order/inquiry' }">
+          <div class="icon">
+            <i class="iconfont iconxiaoxi" style="color: #7da2ff"></i>
+          </div>
+          <p>询价管理</p>
+        </router-link>
+      </el-card>
+    </el-col>
+    <el-col v-bind="grid" class="ivu-mb" v-auth="['admin-order-print-queue-index']">
+      <el-card shadow="never">
+        <router-link :to="{ path: $routeProStr + '/order/print-queue' }">
+          <div class="icon">
+            <i class="iconfont iconshijian" style="color: #ff7d00"></i>
+          </div>
+          <p>排单管理</p>
+        </router-link>
+      </el-card>
+    </el-col>
+    <el-col v-bind="grid" class="ivu-mb" v-auth="['setting-merchant-system-verify-order']">
+      <el-card shadow="never">
+        <router-link :to="{ path: $routeProStr + '/setting/merchant/system_verify_order/index' }">
+          <div class="icon">
+            <i class="iconfont iconsaoma" style="color: #0fc6c2"></i>
+          </div>
+          <p>核销记录</p>
         </router-link>
       </el-card>
     </el-col>
@@ -56,27 +86,17 @@
           <div class="icon">
             <i class="iconfont iconwenzhangguanli" style="color: #7da2ff"></i>
           </div>
-          <p>文章管理</p>
+          <p>打印指南</p>
         </router-link>
       </el-card>
     </el-col>
-    <el-col v-bind="grid" class="ivu-mb" v-auth="['agent-agent-manage']">
+    <el-col v-bind="grid" class="ivu-mb" v-auth="['admin-setting-pages-devise']">
       <el-card shadow="never">
-        <router-link :to="{ path: $routeProStr + '/agent/agent_manage/index' }">
+        <router-link :to="{ path: $routeProStr + '/setting/pages/devise/0' }">
           <div class="icon">
-            <i class="iconfont iconfenxiaoguanli" style="color: #ff7d00"></i>
+            <i class="iconfont iconzhuangxiu" style="color: #f56a00"></i>
           </div>
-          <p>分销管理</p>
-        </router-link>
-      </el-card>
-    </el-col>
-    <el-col v-bind="grid" class="ivu-mb" v-auth="['marketing-store_coupon-index']">
-      <el-card shadow="never">
-        <router-link :to="{ path: $routeProStr + '/marketing/store_coupon_issue/index' }">
-          <div class="icon">
-            <i class="iconfont iconyouhuiquan4" style="color: #0fc6c2"></i>
-          </div>
-          <p>优惠券</p>
+          <p>首页装修</p>
         </router-link>
       </el-card>
     </el-col>
