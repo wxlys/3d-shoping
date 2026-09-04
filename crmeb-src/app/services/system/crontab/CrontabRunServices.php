@@ -264,10 +264,11 @@ class CrontabRunServices
     {
         try {
             $inquiryServices = app()->make(PrintInquiryServices::class);
+            $validated = $inquiryServices->validatePendingFiles();
             $expired = $inquiryServices->expireQuoted();
             $received = app()->make(PrintQueueServices::class)->autoReceipt();
             $cleaned = $inquiryServices->cleanupUnusedFiles();
-            $this->crontabLog(" 3D打印业务维护完成：过期{$expired}，自动收货{$received}，清理文件{$cleaned}");
+            $this->crontabLog(" 3D打印业务维护完成：校验{$validated}，过期{$expired}，自动收货{$received}，清理文件{$cleaned}");
         } catch (\Throwable $e) {
             $this->crontabLog('3D打印业务维护失败,失败原因:' . $e->getMessage());
         }

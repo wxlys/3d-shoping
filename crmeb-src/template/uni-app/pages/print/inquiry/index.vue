@@ -14,13 +14,16 @@
       </view>
       <view v-if="selectedFile" class="file-card">
         <view class="file-name">{{ selectedFile.filename }}</view>
-        <view class="file-size">{{ selectedFile.size_text || formatSize(selectedFile.size) }}</view>
+        <view class="file-size">
+          <view>{{ selectedFile.size_text || formatSize(selectedFile.size) }}</view>
+          <view class="file-status">{{ selectedFile.status_name || '校验中' }}</view>
+        </view>
       </view>
       <view v-if="files.length" class="saved-files">
         <view class="saved-title">已上传文件（点击可选择）</view>
         <view v-for="item in files" :key="item.id" class="saved-file" :class="{ active: selectedFile && selectedFile.id === item.id }" @click.stop="selectFile(item)">
           <text>{{ item.filename }}</text>
-          <text>{{ item.size_text }}</text>
+          <text class="saved-file-status">{{ item.status_name }}</text>
         </view>
       </view>
     </view>
@@ -64,7 +67,7 @@
 
 <script>
 import { HTTP_REQUEST_URL, TOKENNAME } from '@/config/app.js';
-import { createPrintInquiry, getPrintFileList } from '@/api/print3d.js';
+import { createPrintInquiry, getPrintFileInfo, getPrintFileList } from '@/api/print3d.js';
 
 export default {
   data() {
@@ -79,6 +82,7 @@ export default {
       material: 'PLA',
       quantity: 1,
       maxFileMb: 100,
+      statusTimer: null,
       sizeOptions: [
         { value: 'S', label: 'S 小型' },
         { value: 'M', label: 'M 中型' },
@@ -93,6 +97,9 @@ export default {
     this.requestedFileId = Number(options.file_id || 0);
     this.loadFiles();
   },
+  onUnload() {
+    this.stopStatusPolling();
+  },
   methods: {
     loadFiles() {
       getPrintFileList({ page: 1, limit: 20 })
@@ -101,6 +108,8 @@ export default {
           if (this.requestedFileId) {
             this.selectedFile = this.files.find((item) => item.id === this.requestedFileId && item.status === 2) || null;
             if (!this.selectedFile) this.$util.Tips({ title: '该文件暂不可用于询价' });
+            const requestedFile = this.files.find((item) => item.id === this.requestedFileId);
+            if (requestedFile && requestedFile.status === 1) this.pollFileStatus(requestedFile.id);
           }
         })
         .catch(() => {});
@@ -153,7 +162,8 @@ export default {
           if (data.status === 200 && data.data) {
             this.selectedFile = data.data;
             this.files = [data.data, ...this.files.filter((item) => item.id !== data.data.id)];
-            uni.showToast({ title: '上传成功', icon: 'success' });
+            uni.showToast({ title: data.data.status === 1 ? '上传成功，正在校验' : '上传成功', icon: 'success' });
+            if (data.data.status === 1) this.pollFileStatus(data.data.id);
           } else {
             this.$util.Tips({ title: data.msg || '模型文件上传失败' });
           }
@@ -165,6 +175,11 @@ export default {
       });
     },
     selectFile(file) {
+      if (Number(file.status) !== 2) {
+        this.$util.Tips({ title: Number(file.status) === 1 ? '模型文件正在校验，请稍后' : (file.fail_reason || '该文件不可用于询价') });
+        if (Number(file.status) === 1) this.pollFileStatus(file.id);
+        return;
+      }
       this.selectedFile = file;
     },
     changeQuantity(step) {
@@ -173,6 +188,10 @@ export default {
     submitInquiry() {
       if (!this.selectedFile || !this.selectedFile.id) {
         this.$util.Tips({ title: '请先上传并选择模型文件' });
+        return;
+      }
+      if (Number(this.selectedFile.status) !== 2) {
+        this.$util.Tips({ title: Number(this.selectedFile.status) === 1 ? '模型文件正在校验，请稍后再提交' : (this.selectedFile.fail_reason || '模型文件校验失败，请重新上传') });
         return;
       }
       this.submitting = true;
@@ -190,6 +209,32 @@ export default {
         .finally(() => {
           this.submitting = false;
         });
+    },
+    pollFileStatus(id) {
+      this.stopStatusPolling();
+      let attempts = 0;
+      this.statusTimer = setInterval(() => {
+        attempts += 1;
+        getPrintFileInfo(id).then((res) => {
+          const item = res.data;
+          if (!item) return;
+          this.files = [item, ...this.files.filter((file) => file.id !== item.id)];
+          if ((this.selectedFile && this.selectedFile.id === item.id) || (!this.selectedFile && this.requestedFileId === item.id && Number(item.status) === 2)) this.selectedFile = item;
+          if (Number(item.status) !== 1 || attempts >= 40) {
+            this.stopStatusPolling();
+            if (Number(item.status) === 2) uni.showToast({ title: '模型文件校验通过', icon: 'success' });
+            if (Number(item.status) === 3) this.$util.Tips({ title: item.fail_reason || '模型文件校验失败' });
+          }
+        }).catch(() => {
+          if (attempts >= 40) this.stopStatusPolling();
+        });
+      }, 3000);
+    },
+    stopStatusPolling() {
+      if (this.statusTimer) {
+        clearInterval(this.statusTimer);
+        this.statusTimer = null;
+      }
     },
     goList() {
       uni.navigateTo({ url: '/pages/print/inquiry_list/index' });
@@ -234,10 +279,12 @@ export default {
 .file-card { display: flex; justify-content: space-between; margin-top: 18rpx; padding: 18rpx; border-radius: 10rpx; background: #f0f6ff; font-size: 25rpx; }
 .file-name { max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3875ea; }
 .file-size { color: #999; }
+.file-status { margin-top: 6rpx; color: #3875ea; font-size: 22rpx; }
 .saved-files { margin-top: 24rpx; }
 .saved-title { margin-bottom: 12rpx; color: #999; font-size: 23rpx; }
 .saved-file { display: flex; justify-content: space-between; padding: 16rpx 0; color: #666; font-size: 24rpx; border-bottom: 1rpx solid #f1f1f1; }
 .saved-file text:first-child { max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-file-status { margin-left: 12rpx; color: #999; white-space: nowrap; }
 .saved-file.active { color: #3875ea; }
 .form-row { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #f3f3f3; }
 .form-label { width: 150rpx; color: #666; font-size: 26rpx; }

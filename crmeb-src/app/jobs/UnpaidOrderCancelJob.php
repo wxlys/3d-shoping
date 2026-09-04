@@ -16,6 +16,7 @@ use app\services\activity\seckill\StoreSeckillServices;
 use app\services\order\StoreOrderCartInfoServices;
 use app\services\order\StoreOrderRefundServices;
 use app\services\order\StoreOrderServices;
+use app\services\print3d\PrintNoticeServices;
 use crmeb\basic\BaseJobs;
 use crmeb\traits\QueueTrait;
 use think\facade\Log;
@@ -68,6 +69,14 @@ class UnpaidOrderCancelJob extends BaseJobs
                 $orderInfo->is_cancel = 1;
                 $orderInfo->mark = '订单未支付已超过系统预设时间';
                 $orderInfo->save();
+                if ((int)($orderInfo->is_print ?? 0) === 1) {
+                    app()->make(PrintNoticeServices::class)->send(
+                        (int)$orderInfo->uid,
+                        '定制订单支付超时',
+                        '订单' . $orderInfo->order_id . '因超过支付时限已自动取消，模型文件现可重新询价。',
+                        ['order_id' => (string)$orderInfo->order_id]
+                    );
+                }
             }
             return $res;
         } catch (\Throwable $e) {

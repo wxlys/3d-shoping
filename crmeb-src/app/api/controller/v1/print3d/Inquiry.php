@@ -37,10 +37,25 @@ class Inquiry
         return app('json')->success($this->services->getFileList($this->uid($request), (int)$page, (int)$limit));
     }
 
+    public function fileInfo(Request $request, $id)
+    {
+        return app('json')->success($this->services->getUserFileInfo($this->uid($request), (int)$id));
+    }
+
     public function download(Request $request, $id)
     {
         $file = $this->services->getUserFile($this->uid($request), (int)$id);
         return $this->services->downloadFile($file);
+    }
+
+    public function signedDownload(Request $request, $id)
+    {
+        $expires = (int)$request->get('expires', 0);
+        $signature = (string)$request->get('signature', '');
+        if (!$this->services->verifyDownloadSignature((int)$id, $expires, $signature)) {
+            throw new ApiException('下载地址已失效');
+        }
+        return $this->services->downloadFile($this->services->getFileById((int)$id));
     }
 
     public function deleteFile(Request $request, $id)

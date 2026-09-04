@@ -10,6 +10,7 @@ use app\services\order\StoreOrderCreateServices;
 use app\services\other\UploadService;
 use crmeb\exceptions\ApiException;
 use think\facade\Db;
+use think\facade\Env;
 
 /**
  * 定制打印询价服务
@@ -44,7 +45,7 @@ class PrintInquiryServices
     ];
 
     /**
-     * 上传并校验模型文件。
+     * 上传模型文件，文件内容校验由定时任务异步完成。
      * @param Request $request
      * @param int $uid
      * @return array
@@ -74,17 +75,6 @@ class PrintInquiryServices
             throw new ApiException('模型文件不能超过' . $maxMb . 'MB');
         }
 
-        $originalMime = strtolower((string)$file->getOriginalMime());
-        $detectedMime = $this->detectMime($path);
-        if (!$this->isAllowedMime($originalMime) && !$this->isAllowedMime($detectedMime)) {
-            throw new ApiException('模型文件类型不受支持');
-        }
-
-        $head = (string)@file_get_contents($path, false, null, 0, 4096);
-        if (!$this->isValidModelHeader($ext, $head, $size)) {
-            throw new ApiException('模型文件内容校验失败，请确认文件未损坏');
-        }
-
         $maxCount = max(1, (int)sys_config('print_file_max_count', 50));
         $usedCount = (int)Db::name('print_file')
             ->where('uid', $uid)
@@ -94,34 +84,17 @@ class PrintInquiryServices
             throw new ApiException('每位用户最多保存' . $maxCount . '个模型文件');
         }
 
-        // UploadService 负责接入当前站点的本地、OSS、COS 等存储配置。
-        $upload = UploadService::init();
-        $uploadMimes = $this->getAllowedMimes();
-        // 某些客户端会把合法模型标成自定义 MIME；前面的扩展名、内容头校验通过后，
-        // 将原始 MIME 传给存储驱动，避免驱动层再次误拒绝。
-        if ($originalMime && !in_array($originalMime, $uploadMimes, true) && $this->isAllowedMime($detectedMime)) {
-            $uploadMimes[] = $originalMime;
-        }
-        $uploadInfo = $upload->to('print/model')->setAuthThumb(false)->validate([
-            'filesize' => $maxMb * 1024 * 1024,
-            'fileExt' => $allowedExt,
-            'fileMime' => $uploadMimes,
-        ])->move('file');
-        if ($uploadInfo === false) {
-            throw new ApiException($upload->getError() ?: '模型文件上传失败');
-        }
-
-        $info = $upload->getUploadInfo();
+        $storedName = $this->storePrivateFile($path, $uid, $ext);
         $now = time();
         $id = Db::name('print_file')->insertGetId([
             'uid' => $uid,
             'inquiry_id' => 0,
             'order_id' => 0,
             'filename' => $fileName,
-            'stored_name' => (string)($info['dir'] ?? ''),
+            'stored_name' => $storedName,
             'ext' => $ext,
             'size' => $size,
-            'status' => self::FILE_PASS,
+            'status' => self::FILE_VALIDATING,
             'fail_reason' => '',
             'add_time' => $now,
             'update_time' => $now,
@@ -136,10 +109,10 @@ class PrintInquiryServices
             'id' => $id,
             'uid' => $uid,
             'filename' => $fileName,
-            'stored_name' => (string)($info['dir'] ?? ''),
+            'stored_name' => $storedName,
             'ext' => $ext,
             'size' => $size,
-            'status' => self::FILE_PASS,
+            'status' => self::FILE_VALIDATING,
             'fail_reason' => '',
             'add_time' => $now,
         ]);
@@ -216,11 +189,87 @@ class PrintInquiryServices
         if ($storedName === '') {
             return;
         }
+        $privatePath = $this->privateStoragePath($storedName);
+        if ($privatePath !== '') {
+            if (is_file($privatePath)) {
+                @unlink($privatePath);
+            }
+            return;
+        }
         try {
             UploadService::init()->delete($storedName);
         } catch (\Throwable $e) {
             // 存储文件不存在时仍允许清理数据库记录，避免形成永久脏数据。
         }
+    }
+
+    /**
+     * 定时任务调用：异步校验等待中的模型文件。
+     * @param int $limit
+     * @return int
+     */
+    public function validatePendingFiles(int $limit = 20): int
+    {
+        $files = Db::name('print_file')->where([
+            'status' => self::FILE_VALIDATING,
+            'is_del' => 0,
+        ])->order('id asc')->limit(max(1, min(100, $limit)))->select()->toArray();
+        $processed = 0;
+        foreach ($files as $file) {
+            $reason = '';
+            try {
+                $path = $this->resolveStoredFilePath((string)($file['stored_name'] ?? ''));
+                if (!$path) {
+                    $reason = '文件不存在或已被清理';
+                } else {
+                    $size = (int)@filesize($path);
+                    $maxMb = max(1, (int)sys_config('print_file_max_mb', 100));
+                    $ext = strtolower((string)($file['ext'] ?? ''));
+                    $mime = $this->detectMime($path);
+                    $head = (string)@file_get_contents($path, false, null, 0, 4096);
+                    if ($size <= 0) {
+                        $reason = '模型文件为空';
+                    } elseif ($size > $maxMb * 1024 * 1024) {
+                        $reason = '模型文件不能超过' . $maxMb . 'MB';
+                    } elseif (!$this->isAllowedMime($mime)) {
+                        $reason = '模型文件类型不受支持';
+                    } elseif (!$this->isValidModelHeader($ext, $head, $size)) {
+                        $reason = '模型文件内容校验失败，请确认文件未损坏';
+                    }
+                    if ($reason === '') {
+                        Db::name('print_file')->where('id', (int)$file['id'])->update([
+                            'size' => $size,
+                            'status' => self::FILE_PASS,
+                            'fail_reason' => '',
+                            'update_time' => time(),
+                        ]);
+                        app()->make(PrintNoticeServices::class)->send(
+                            (int)$file['uid'],
+                            '模型文件校验通过',
+                            '模型文件“' . $file['filename'] . '”已通过校验，可以提交定制询价。',
+                            ['file_id' => (int)$file['id']]
+                        );
+                        $processed++;
+                        continue;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $reason = '文件校验异常，请重新上传';
+            }
+            Db::name('print_file')->where('id', (int)$file['id'])->update([
+                'status' => self::FILE_FAIL,
+                'fail_reason' => $reason ?: '文件校验失败',
+                'update_time' => time(),
+            ]);
+            app()->make(PrintNoticeServices::class)->send(
+                (int)$file['uid'],
+                '模型文件校验失败',
+                '模型文件“' . $file['filename'] . '”校验失败：' . ($reason ?: '文件校验失败') . '。请重新上传。',
+                ['file_id' => (int)$file['id']]
+            );
+            $processed++;
+        }
+        return $processed;
     }
 
     /**
@@ -252,6 +301,12 @@ class PrintInquiryServices
         ])->find();
         if (!$file) {
             throw new ApiException('模型文件不存在');
+        }
+        if ((int)$file['status'] === self::FILE_VALIDATING) {
+            throw new ApiException('模型文件正在校验，请稍后再提交');
+        }
+        if ((int)$file['status'] === self::FILE_FAIL) {
+            throw new ApiException('模型文件校验失败：' . ((string)$file['fail_reason'] ?: '请重新上传'));
         }
         if ((int)$file['status'] !== self::FILE_PASS) {
             throw new ApiException('模型文件尚未通过校验');
@@ -827,6 +882,43 @@ class PrintInquiryServices
     }
 
     /**
+     * 获取用户自己的文件状态。
+     */
+    public function getUserFileInfo(int $uid, int $id): array
+    {
+        return $this->formatFile($this->getUserFile($uid, $id));
+    }
+
+    /**
+     * 生成短时有效的签名下载地址，供用户端和后台浏览器下载私有模型文件。
+     */
+    public function getSignedFileUrl(int $id): string
+    {
+        if ($id <= 0) {
+            return '';
+        }
+        $expires = time() + 600;
+        $signature = $this->makeDownloadSignature($id, $expires);
+        $siteUrl = rtrim((string)sys_config('site_url', ''), '/');
+        return $siteUrl . '/api/print/file/signed-download/' . $id . '?expires=' . $expires . '&signature=' . $signature;
+    }
+
+    public function verifyDownloadSignature(int $id, int $expires, string $signature): bool
+    {
+        return $id > 0 && $expires >= time() && $expires <= time() + 601
+            && hash_equals($this->makeDownloadSignature($id, $expires), $signature);
+    }
+
+    public function getFileById(int $id): array
+    {
+        $file = Db::name('print_file')->where(['id' => $id, 'is_del' => 0])->find();
+        if (!$file) {
+            throw new ApiException('文件不存在');
+        }
+        return $file;
+    }
+
+    /**
      * 输出一个受保护的本地下载响应；远程存储则跳转到存储地址。
      * @param array $file
      * @return mixed
@@ -837,14 +929,8 @@ class PrintInquiryServices
         if (preg_match('/^https?:\\/\\//i', $storedName)) {
             return redirect($storedName);
         }
-        $relativePath = parse_url($storedName, PHP_URL_PATH) ?: $storedName;
-        $relativePath = '/' . ltrim(str_replace('\\', '/', $relativePath), '/');
-        if (strpos($relativePath, '/uploads/') !== 0) {
-            throw new ApiException('文件地址无效');
-        }
-        $publicRoot = realpath(app()->getRootPath() . 'public/uploads');
-        $absolutePath = realpath(app()->getRootPath() . 'public' . $relativePath);
-        if (!$publicRoot || !$absolutePath || strpos($absolutePath, $publicRoot . DIRECTORY_SEPARATOR) !== 0 || !is_file($absolutePath)) {
+        $absolutePath = $this->resolveStoredFilePath($storedName);
+        if (!$absolutePath || !is_file($absolutePath)) {
             throw new ApiException('文件不存在或已被清理');
         }
         return download($absolutePath, (string)($file['filename'] ?? 'model.' . ($file['ext'] ?? 'stl')));
@@ -909,7 +995,7 @@ class PrintInquiryServices
             'fail_reason' => (string)($file['fail_reason'] ?? ''),
             'add_time' => (int)($file['add_time'] ?? 0),
             'add_time_text' => $this->formatTime($file['add_time'] ?? 0),
-            'file_url' => $this->getFileUrl((string)($file['stored_name'] ?? '')),
+            'file_url' => $this->getSignedFileUrl((int)($file['id'] ?? 0)),
             'inquiry_id' => (int)($file['inquiry_id'] ?? 0),
             'order_id' => (int)($file['order_id'] ?? 0),
         ];
@@ -1011,19 +1097,68 @@ class PrintInquiryServices
         return $size . ' B';
     }
 
-    protected function getFileUrl(string $path): string
+    protected function storePrivateFile(string $sourcePath, int $uid, string $ext): string
     {
-        if (!$path) {
+        $directory = $this->privateStorageRoot() . DIRECTORY_SEPARATOR . $uid;
+        if (!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory)) {
+            throw new ApiException('模型文件存储目录创建失败');
+        }
+        $token = bin2hex(random_bytes(16)) . '.' . $ext;
+        $target = $directory . DIRECTORY_SEPARATOR . $token;
+        if (!@copy($sourcePath, $target)) {
+            throw new ApiException('模型文件保存失败');
+        }
+        @chmod($target, 0640);
+        return 'private://' . $uid . '/' . $token;
+    }
+
+    protected function privateStorageRoot(): string
+    {
+        return rtrim((string)app()->getRuntimePath(), '\\/') . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'print_models';
+    }
+
+    protected function privateStoragePath(string $storedName): string
+    {
+        if (strpos($storedName, 'private://') !== 0) {
             return '';
         }
-        if (preg_match('/^https?:\\/\\//i', $path)) {
-            return $path;
+        $relative = str_replace('\\', '/', substr($storedName, strlen('private://')));
+        if (!preg_match('/^([0-9]+)\\/([a-f0-9]{32}\\.[a-z0-9]+)$/i', $relative)) {
+            return '';
         }
-        $url = function_exists('path_to_url') ? path_to_url($path) : $path;
-        if (preg_match('/^https?:\\/\\//i', (string)$url)) {
-            return $url;
+        $root = realpath($this->privateStorageRoot());
+        if (!$root) {
+            return '';
         }
-        $siteUrl = rtrim((string)sys_config('site_url', ''), '/');
-        return $siteUrl . '/' . ltrim((string)$url, '/');
+        $candidate = $this->privateStorageRoot() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        $absolute = realpath($candidate);
+        if (!$absolute || !is_file($absolute) || strpos($absolute, $root . DIRECTORY_SEPARATOR) !== 0) {
+            return '';
+        }
+        return $absolute;
+    }
+
+    protected function resolveStoredFilePath(string $storedName): string
+    {
+        $privatePath = $this->privateStoragePath($storedName);
+        if ($privatePath !== '') {
+            return $privatePath;
+        }
+        $relativePath = parse_url($storedName, PHP_URL_PATH) ?: $storedName;
+        $relativePath = '/' . ltrim(str_replace('\\', '/', $relativePath), '/');
+        if (strpos($relativePath, '/uploads/') !== 0) {
+            return '';
+        }
+        $publicRoot = realpath(app()->getRootPath() . 'public/uploads');
+        $absolutePath = realpath(app()->getRootPath() . 'public' . $relativePath);
+        if (!$publicRoot || !$absolutePath || strpos($absolutePath, $publicRoot . DIRECTORY_SEPARATOR) !== 0 || !is_file($absolutePath)) {
+            return '';
+        }
+        return $absolutePath;
+    }
+
+    protected function makeDownloadSignature(int $id, int $expires): string
+    {
+        return hash_hmac('sha256', $id . '|' . $expires, (string)Env::get('app.app_key', 'default'));
     }
 }

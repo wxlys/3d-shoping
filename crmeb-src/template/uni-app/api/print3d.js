@@ -4,6 +4,10 @@ export function getPrintFileList(data) {
   return request.get('print/file/list', data || {});
 }
 
+export function getPrintFileInfo(id) {
+  return request.get(`print/file/info/${id}`);
+}
+
 export function deletePrintFile(id) {
   return request.post(`print/file/delete/${id}`);
 }

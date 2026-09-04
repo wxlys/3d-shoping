@@ -22,6 +22,7 @@ use app\services\activity\coupon\StoreCouponIssueUserServices;
 use app\services\activity\coupon\StoreCouponUserServices;
 use app\services\pay\PayServices;
 use app\services\print3d\PrintInquiryServices;
+use app\services\print3d\PrintNoticeServices;
 use app\services\printqueue\PrintQueueServices;
 use app\services\product\product\StoreProductServices;
 use app\services\shipping\ExpressServices;
@@ -291,6 +292,14 @@ class StoreOrderRefundServices extends BaseServices
         //自定义消息-退款成功
         $order['phone'] = $order['user_phone'];
         event('CustomNoticeListener', [$order['uid'], $order, 'order_refund_success']);
+        if ((int)($order['is_print'] ?? 0) === 1) {
+            app()->make(PrintNoticeServices::class)->send(
+                (int)$order['uid'],
+                '定制订单退款成功',
+                '订单' . $order['order_id'] . '已退款成功，退款金额 ¥' . number_format((float)$refundData['refund_price'], 2, '.', '') . '。',
+                ['order_id' => (string)$order['order_id'], 'refund_price' => (string)$refundData['refund_price']]
+            );
+        }
 
         //自定义事件-后台订单退款
         event('CustomEventListener', ['admin_order_refund_success', [
@@ -640,6 +649,14 @@ class StoreOrderRefundServices extends BaseServices
         }
 
         event('NoticeListener', [['data' => $data, 'order' => $order], 'order_refund']);
+        if ((int)($order['is_print'] ?? 0) === 1) {
+            app()->make(PrintNoticeServices::class)->send(
+                (int)$order['uid'],
+                '定制订单退款成功',
+                '订单' . $order['order_id'] . '已退款成功，退款金额 ¥' . number_format((float)$refund_price, 2, '.', '') . '。',
+                ['order_id' => (string)$order['order_id'], 'refund_price' => (string)$refund_price]
+            );
+        }
     }
 
     /**
@@ -738,6 +755,15 @@ class StoreOrderRefundServices extends BaseServices
 
         //自定义消息-退款失败
         event('CustomNoticeListener', [$orderRefundInfo['uid'], $orderRefundInfo->toArray(), 'order_refund_fail']);
+        $orderInfo = Db::name('store_order')->where('id', (int)$orderRefundInfo['store_order_id'])->field('id,uid,order_id,is_print')->find();
+        if ($orderInfo && (int)($orderInfo['is_print'] ?? 0) === 1) {
+            app()->make(PrintNoticeServices::class)->send(
+                (int)$orderInfo['uid'],
+                '定制订单退款未通过',
+                '订单' . $orderInfo['order_id'] . '的退款申请未通过：' . ($data['refuse_reason'] ?? '请联系商家') . '。',
+                ['order_id' => (string)$orderInfo['order_id'], 'refund_id' => (int)$id]
+            );
+        }
 
         //自定义事件-后台订单拒绝退款
         event('CustomEventListener', ['admin_order_refund_fail', [

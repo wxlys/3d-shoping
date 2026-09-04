@@ -13,6 +13,7 @@ namespace app\jobs;
 
 
 use app\services\order\StoreOrderServices;
+use app\services\print3d\PrintNoticeServices;
 use crmeb\basic\BaseJobs;
 use crmeb\traits\QueueTrait;
 
@@ -41,6 +42,14 @@ class UnpaidOrderSend extends BaseJobs
         }
         //收货给用户发送消息
         event('NoticeListener', [['order' => $orderInfo], 'order_pay_false']);
+        if ((int)($orderInfo->is_print ?? 0) === 1) {
+            app()->make(PrintNoticeServices::class)->send(
+                (int)$orderInfo->uid,
+                '定制订单待支付提醒',
+                '定制订单' . $orderInfo->order_id . '尚未完成支付，请及时支付，超时后订单将自动取消。',
+                ['order_id' => (string)$orderInfo->order_id]
+            );
+        }
         return true;
     }
 
