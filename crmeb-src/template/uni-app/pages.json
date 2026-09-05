@@ -205,18 +205,6 @@
 						}
 					}
 				}, {
-					"path": "goods_comment_con/lottery_comment",
-					"style": {
-						"navigationBarTitleText": "订单评价",
-						"app-plus": {
-							// #ifdef APP-PLUS
-							"titleNView": {
-								"type": "default"
-							}
-							// #endif
-						}
-					}
-				}, {
 					"path": "goods_comment_list/index",
 					"style": {
 						"navigationBarTitleText": "商品评分",

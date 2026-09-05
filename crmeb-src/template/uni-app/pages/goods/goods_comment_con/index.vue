@@ -193,24 +193,15 @@
 				uni.showLoading({
 					title: that.$t(`正在发布评论`)
 				});
-				orderComment(value).then(res => {
+				orderComment(value).then(() => {
 					uni.hideLoading();
-					if (res.data.to_lottery) {
-						let jumpPath = '/pages/goods/goods_comment_con/lottery_comment?type=4&order_id=' + that
-							.orderId + '&date=' + Date.parse(new Date())
-						that.$util.Tips({
-							title: that.$t(`感谢您的评价`),
-							icon: 'success'
-						}, jumpPath);
-					} else {
-						that.$util.Tips({
-							title: that.$t(`感谢您的评价`),
-							icon: 'success'
-						})
-						setTimeout(e => {
-							uni.navigateBack()
-						}, 1500)
-					}
+					that.$util.Tips({
+						title: that.$t(`感谢您的评价`),
+						icon: 'success'
+					})
+					setTimeout(() => {
+						uni.navigateBack()
+					}, 1500)
 				}).catch(err => {
 					uni.hideLoading();
 					return that.$util.Tips({
