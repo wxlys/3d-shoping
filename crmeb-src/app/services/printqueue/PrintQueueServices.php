@@ -28,6 +28,10 @@ class PrintQueueServices
      */
     public function enqueue(array $orderInfo): bool
     {
+        if ((int)($orderInfo['is_print'] ?? 0) !== 1) {
+            return false;
+        }
+
         // 支付回调可能重试，已有排单时直接视为入队成功，避免唯一索引报重复错误。
         $existing = Db::name('print_queue')->where('order_id', (int)$orderInfo['id'])->where('is_del', 0)->find();
         if ($existing) {
@@ -101,7 +105,7 @@ class PrintQueueServices
             ->toArray();
         foreach ($queueList as $item) {
             $order = Db::name('store_order')->where('id', (int)$item['order_id'])->find();
-            if (!$order) {
+            if (!$order || (int)($order['is_print'] ?? 0) !== 1) {
                 continue;
             }
             $expectedDeliverAt = $this->getManualExpectedDeliverAt($order);
@@ -164,6 +168,12 @@ class PrintQueueServices
             return false;
         }
         $order = Db::name('store_order')->where('id', $orderId)->find();
+        if (!$order || (int)($order['is_print'] ?? 0) !== 1
+            || (int)($order['paid'] ?? 0) !== 1
+            || (int)($order['queue_status'] ?? 0) !== self::STATUS_PRINTING
+            || (int)($order['refund_status'] ?? 0) !== 0) {
+            return false;
+        }
         $now = time();
         $verifyCode = (string)($order['verify_code'] ?? '');
         if ($verifyCode === '') {
@@ -203,7 +213,7 @@ class PrintQueueServices
             return false;
         }
         $order = Db::name('store_order')->where('id', $orderId)->find();
-        if (!$order) {
+        if (!$order || (int)($order['is_print'] ?? 0) !== 1) {
             return false;
         }
         $oldExpectedStartAt = (int)($order['expected_start_at'] ?? 0) ?: (int)($queue['expected_start_at'] ?? 0);
@@ -250,6 +260,10 @@ class PrintQueueServices
      */
     public function updateProgress(int $orderId, string $note): bool
     {
+        $order = Db::name('store_order')->where('id', $orderId)->field('id,is_print')->find();
+        if (!$order || (int)($order['is_print'] ?? 0) !== 1) {
+            return false;
+        }
         Db::name('store_order')->where('id', $orderId)->update(['progress_note' => $note]);
         $this->sendOrderNotice($orderId, '定制订单进度更新', $note !== '' ? $note : '你的定制打印进度已更新。');
         return true;
@@ -264,6 +278,10 @@ class PrintQueueServices
     {
         $queue = Db::name('print_queue')->where('order_id', $orderId)->where('is_del', 0)->find();
         if (!$queue) {
+            return false;
+        }
+        $order = Db::name('store_order')->where('id', $orderId)->field('id,is_print')->find();
+        if (!$order || (int)($order['is_print'] ?? 0) !== 1) {
             return false;
         }
         $deviceId = (int)$queue['device_id'];

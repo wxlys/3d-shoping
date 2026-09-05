@@ -109,13 +109,23 @@ class PrintQueue extends AuthController
         if (!$orderId) {
             return app('json')->fail('参数错误');
         }
-        $this->services->updateProgress((int)$orderId, trim((string)$note));
+        if (!$this->services->updateProgress((int)$orderId, trim((string)$note))) {
+            return app('json')->fail('当前订单不是定制打印订单');
+        }
         return app('json')->success('进度备注已更新');
     }
 
     protected function summary(): array
     {
-        $rows = Db::name('print_queue')->where('is_del', 0)->field('status,count(*) as count')->group('status')->select()->toArray();
+        $rows = Db::name('print_queue')->alias('q')
+            ->leftJoin('store_order o', 'o.id=q.order_id')
+            ->where('q.is_del', 0)
+            ->where('o.is_del', 0)
+            ->where('o.is_print', 1)
+            ->field('q.status,count(*) as count')
+            ->group('q.status')
+            ->select()
+            ->toArray();
         $summary = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
         foreach ($rows as $row) {
             $summary[(int)$row['status']] = (int)$row['count'];

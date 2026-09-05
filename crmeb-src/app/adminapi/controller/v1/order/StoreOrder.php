@@ -166,7 +166,9 @@ class StoreOrder extends AuthController
             ['progress_note', ''],
         ], true);
         if (!$orderId) return app('json')->fail('参数错误');
-        app()->make(\app\services\printqueue\PrintQueueServices::class)->updateProgress((int)$orderId, (string)$note);
+        if (!app()->make(\app\services\printqueue\PrintQueueServices::class)->updateProgress((int)$orderId, (string)$note)) {
+            return app('json')->fail('当前订单不是定制打印订单');
+        }
         return app('json')->success('进度已更新');
     }
 
