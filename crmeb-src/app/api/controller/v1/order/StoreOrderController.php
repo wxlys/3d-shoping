@@ -270,6 +270,9 @@ class StoreOrderController
             return app('json')->fail('订单不存在');
         if ($order['paid'])
             return app('json')->fail('订单已支付');
+        if (!in_array($paytype, [PayServices::WEIXIN_PAY, PayServices::ALIAPY_PAY, PayServices::OFFLINE_PAY], true)) {
+            return app('json')->fail('当前仅支持微信、支付宝和线下支付');
+        }
         if ($order['pink_id'] && $services->isPinkStatus($order['pink_id'])) {
             return app('json')->fail('该订单已失效');
         }

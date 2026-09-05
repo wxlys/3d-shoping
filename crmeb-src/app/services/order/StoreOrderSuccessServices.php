@@ -13,8 +13,6 @@ namespace app\services\order;
 
 
 use app\dao\order\StoreOrderDao;
-use app\services\activity\lottery\LuckLotteryServices;
-use app\services\activity\combination\StorePinkServices;
 use app\services\BaseServices;
 use app\services\pay\PayServices;
 use crmeb\exceptions\ApiException;
@@ -46,12 +44,12 @@ class StoreOrderSuccessServices extends BaseServices
      * @throws \think\db\exception\ModelNotFoundException
      * @throws \think\exception\DbException
      */
-    public function zeroYuanPayment(array $orderInfo, int $uid, string $payType = PayServices::YUE_PAY)
+    public function zeroYuanPayment(array $orderInfo, int $uid, string $payType = PayServices::OFFLINE_PAY)
     {
         if ($orderInfo['paid']) {
             throw new ApiException('该订单已支付');
         }
-        return $this->paySuccess($orderInfo, $payType);//余额支付成功
+        return $this->paySuccess($orderInfo, $payType);
     }
 
     /**
@@ -83,20 +81,6 @@ class StoreOrderSuccessServices extends BaseServices
         if ($res1 && (($orderInfo['is_print'] ?? 0) == 1)) {
             $printQueueServices = app()->make(\app\services\printqueue\PrintQueueServices::class);
             $printQueueServices->enqueue($orderInfo);
-        }
-        $resPink = true;
-        if ($orderInfo['combination_id'] && $res1 && !$orderInfo['refund_status']) {
-            /** @var StorePinkServices $pinkServices */
-            $pinkServices = app()->make(StorePinkServices::class);
-            /** @var StoreOrderServices $orderServices */
-            $orderServices = app()->make(StoreOrderServices::class);
-            $resPink = $pinkServices->createPink($orderServices->tidyOrder($orderInfo, true));//创建拼团
-        }
-        //缓存抽奖次数 除过线下支付
-        if (isset($orderInfo['pay_type']) && $orderInfo['pay_type'] != 'offline') {
-            /** @var LuckLotteryServices $luckLotteryServices */
-            $luckLotteryServices = app()->make(LuckLotteryServices::class);
-            $luckLotteryServices->setCacheLotteryNum((int)$orderInfo['uid'], 'order');
         }
         $orderInfo['send_name'] = $orderInfo['real_name'];
         //订单支付成功后置事件
@@ -130,8 +114,7 @@ class StoreOrderSuccessServices extends BaseServices
             'add_time' => date('Y-m-d H:i:s', $orderInfo['add_time']),
         ]]);
 
-        $res = $res1 && $resPink;
-        return false !== $res;
+        return false !== $res1;
     }
 
 }

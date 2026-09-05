@@ -138,18 +138,8 @@ class StoreOrderTakeServices extends BaseServices
         $storeName = $orderInfoServices->getCarIdByProductTitle((int)$order['id']);
         $storeTitle = Str::substrUTf8($storeName, 20, 'UTF-8', '');
 
-        $res = $this->transaction(function () use ($order, $userInfo, $storeTitle) {
-            //赠送积分
-            $res1 = $this->gainUserIntegral($order, $userInfo, $storeTitle);
-            //返佣
-            $res2 = $this->backOrderBrokerage($order, $userInfo);
-            //经验
-            $res3 = $this->gainUserExp($order, $userInfo);
-            //事业部
-            $res4 = $this->divisionBrokerage($order, $userInfo);
-            if (!($res1 && $res2 && $res3 && $res4)) {
-                throw new ApiException('收货失败');
-            }
+        // 新业务只推进订单状态，不在收货时触发积分、会员经验或佣金结算。
+        $res = $this->transaction(function () {
             return true;
         }, $isTran);
 

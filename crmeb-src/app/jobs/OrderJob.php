@@ -24,7 +24,6 @@ use app\services\order\StoreOrderServices;
 use app\services\product\product\StoreProductServices;
 use app\services\user\member\MemberCardServices;
 use app\services\user\UserLabelRelationServices;
-use app\services\user\UserLevelServices;
 use app\services\user\UserServices;
 use app\services\wechat\WechatUserServices;
 use crmeb\basic\BaseJobs;
@@ -91,14 +90,6 @@ class OrderJob extends BaseJobs
 //            }
 //        }
 
-        //检测会员等级
-        try {
-            /** @var UserLevelServices $levelServices */
-            $levelServices = app()->make(UserLevelServices::class);
-            $levelServices->detection((int)$order['uid']);
-        } catch (\Throwable $e) {
-            Log::error('会员等级升级失败,失败原因:' . $e->getMessage());
-        }
         //向后台发送新订单消息
         try {
             ChannelService::instance()->send('NEW_ORDER', ['order_id' => $order['order_id']]);
@@ -109,7 +100,7 @@ class OrderJob extends BaseJobs
     }
 
     /**
-     * 设置用户购买次数和检测时候成为推广人
+     * 设置用户购买次数
      * @param $order
      */
     public function setUserPayCountAndPromoter($order)
@@ -119,15 +110,6 @@ class OrderJob extends BaseJobs
         $userInfo = $userServices->get($order['uid']);
         if ($userInfo) {
             $userInfo->pay_count = $userInfo->pay_count + 1;
-            if (!$userInfo->is_promoter) {
-                /** @var StoreOrderServices $orderServices */
-                $orderServices = app()->make(StoreOrderServices::class);
-                $price = $orderServices->sum(['paid' => 1, 'refund_status' => 0, 'uid' => $userInfo['uid']], 'pay_price');
-                $status = is_brokerage_statu($price);
-                if ($status) {
-                    $userInfo->is_promoter = 1;
-                }
-            }
             $userInfo->save();
         }
     }

@@ -526,31 +526,15 @@ class StoreCartServices extends BaseServices
         $sum_price = 0;
         $cartList = $this->dao->getUserCartList($uid, '*', ['productInfo', 'attrInfo']);
         if ($cartList) {
-            /** @var StoreProductServices $productServices */
-            $productServices = app()->make(StoreProductServices::class);
-            /** @var MemberCardServices $memberCardService */
-            $memberCardService = app()->make(MemberCardServices::class);
-            $vipStatus = $memberCardService->isOpenMemberCard('vip_price', false);
-            /** @var UserServices $user */
-            $user = app()->make(UserServices::class);
-            $userInfo = $user->getUserInfo($uid);
-            $discount = 100;
-            if (sys_config('member_func_status', 1)) {
-                /** @var SystemUserLevelServices $systemLevel */
-                $systemLevel = app()->make(SystemUserLevelServices::class);
-                $discount = $systemLevel->value(['id' => $userInfo['level'], 'is_del' => 0, 'is_show' => 1], 'discount') ?: 100;
-            }
             foreach ($cartList as &$item) {
                 $productInfo = $item['productInfo'];
                 if (isset($productInfo['attrInfo']['product_id']) && $item['product_attr_unique']) {
-                    [$truePrice, $vip_truePrice, $type] = $productServices->setLevelPrice($productInfo['attrInfo']['price'] ?? 0, $uid, $userInfo, $vipStatus, $discount, $productInfo['attrInfo']['vip_price'] ?? 0, $productInfo['is_vip'] ?? 0, true);
-                    $item['truePrice'] = $truePrice;
-                    $item['price_type'] = $type;
+                    $item['truePrice'] = $productInfo['attrInfo']['price'] ?? 0;
                 } else {
-                    [$truePrice, $vip_truePrice, $type] = $productServices->setLevelPrice($item['productInfo']['price'] ?? 0, $uid, $userInfo, $vipStatus, $discount, $item['productInfo']['vip_price'] ?? 0, $item['productInfo']['is_vip'] ?? 0, true);
-                    $item['truePrice'] = $truePrice;
-                    $item['price_type'] = $type;
+                    $item['truePrice'] = $item['productInfo']['price'] ?? 0;
                 }
+                $item['vip_truePrice'] = 0;
+                $item['price_type'] = 'normal';
                 $sum_price = bcadd((string)$sum_price, (string)bcmul((string)$item['cart_num'], (string)$item['truePrice'], 4), 2);
             }
             $ids = array_column($cartList, 'id');
@@ -581,24 +565,6 @@ class StoreCartServices extends BaseServices
     {
         if (!$cartList) return [$cartList, [], []];
         $tempIds = [];
-        $userInfo = [];
-        $discount = 100;
-        if ($uid) {
-            /** @var UserServices $user */
-            $user = app()->make(UserServices::class);
-            $userInfo = $user->getUserInfo($uid);
-            //用户等级是否开启
-            if (sys_config('member_func_status', 1)) {
-                /** @var SystemUserLevelServices $systemLevel */
-                $systemLevel = app()->make(SystemUserLevelServices::class);
-                $discount = $systemLevel->value(['id' => $userInfo['level'], 'is_del' => 0, 'is_show' => 1], 'discount') ?: 100;
-            }
-        }
-
-        //付费会员是否开启，用户是否是付费会员，两个都满足，订单计算金额才会按照付费会员计算。
-        /** @var MemberCardServices $memberCardService */
-        $memberCardService = app()->make(MemberCardServices::class);
-        $vipStatus = $memberCardService->isOpenMemberCard('vip_price', false) && $userInfo['is_money_level'] > 0;
 
         //不送达运费模板
         if ($shipping_type == 1 && $addr) {
@@ -618,8 +584,6 @@ class StoreCartServices extends BaseServices
             }
         }
 
-        /** @var StoreProductServices $productServices */
-        $productServices = app()->make(StoreProductServices::class);
         $valid = $invalid = [];
         foreach ($cartList as &$item) {
             if ($item['type'] == 0) $item['min_qty'] = $item['productInfo']['min_qty'];
@@ -652,10 +616,7 @@ class StoreCartServices extends BaseServices
                 $item['truePrice'] = $productInfo['attrInfo']['price'] ?? 0;
                 $item['sum_price'] = $productInfo['attrInfo']['price'] ?? 0;
                 if (!$is_activity) {
-                    [$truePrice, $vip_truePrice, $type] = $productServices->setLevelPrice($productInfo['attrInfo']['price'] ?? 0, $uid, $userInfo, $vipStatus, $discount, $productInfo['attrInfo']['vip_price'] ?? 0, $productInfo['is_vip'] ?? 0, true);
-                    $item['truePrice'] = $truePrice;
-                    $item['vip_truePrice'] = $vip_truePrice;
-                    $item['price_type'] = $type;
+                    $item['price_type'] = 'normal';
                 } else {
                     $item['price_type'] = 'activity';
                 }
@@ -665,10 +626,7 @@ class StoreCartServices extends BaseServices
                 $item['truePrice'] = $item['productInfo']['price'] ?? 0;
                 $item['sum_price'] = $item['productInfo']['price'] ?? 0;
                 if (!$is_activity) {
-                    [$truePrice, $vip_truePrice, $type] = $productServices->setLevelPrice($item['productInfo']['price'] ?? 0, $uid, $userInfo, $vipStatus, $discount, $item['productInfo']['vip_price'] ?? 0, $item['productInfo']['is_vip'] ?? 0, true);
-                    $item['truePrice'] = $truePrice;
-                    $item['vip_truePrice'] = $vip_truePrice;
-                    $item['price_type'] = $type;
+                    $item['price_type'] = 'normal';
                 } else {
                     $item['price_type'] = 'activity';
                 }

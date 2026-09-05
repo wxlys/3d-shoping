@@ -36,7 +36,7 @@ class StoreOrderComputedServices extends BaseServices
      * 支付类型
      * @var string[]
      */
-    public $payType = ['weixin' => '微信支付', 'yue' => '余额支付', 'offline' => '线下支付', 'pc' => 'pc'];
+    public $payType = ['weixin' => '微信支付', 'alipay' => '支付宝支付', 'offline' => '线下支付'];
 
     /**
      * 额外参数
@@ -79,9 +79,6 @@ class StoreOrderComputedServices extends BaseServices
      */
     public function computedOrder(int $uid, array $userInfo = [], array $cartGroup, int $addressId, string $payType, bool $useIntegral = false, int $couponId = 0, bool $isCreate = false, int $shippingType = 1, int $is_gift = 0)
     {
-        $offlinePayStatus = (int)sys_config('offline_pay_status') ?? (int)2;
-        $systemPayType = PayServices::PAY_TYPE;
-        if ($offlinePayStatus == 2) unset($systemPayType['offline']);
         if (!$userInfo) {
             /** @var UserServices $userServices */
             $userServices = app()->make(UserServices::class);
@@ -106,26 +103,21 @@ class StoreOrderComputedServices extends BaseServices
             //改变地址重新计算邮费
             $postage = [];
         }
-        $combinationId = $this->paramData['combinationId'] ?? 0;
         $seckillId = $this->paramData['seckill_id'] ?? 0;
-        $bargainId = $this->paramData['bargainId'] ?? 0;
-        $isActivity = $combinationId || $seckillId || $bargainId;
-        if (!$isActivity) {
-            //使用优惠劵
-            [$payPrice, $couponPrice] = $this->useCouponId($couponId, $uid, $cartInfo, $payPrice, $isCreate);
-            //使用积分
-            [$payPrice, $deductionPrice, $usedIntegral, $SurplusIntegral] = $this->useIntegral($useIntegral, $userInfo, $payPrice, $other);
-        }
+        // 3D 打印业务的新订单不再读取优惠券、积分、会员折扣或礼物参数。
+        // 保留方法签名和旧字段，避免共用接口立即失效；这些值不会进入新订单计算。
+        $couponPrice = 0;
+        $deductionPrice = 0;
+        $usedIntegral = 0;
+        $SurplusIntegral = 0;
+        $is_gift = 0;
 
         //计算邮费
         [$payPrice, $payPostage, $storePostageDiscount, $storeFreePostage, $isStoreFreePostage] = $this->computedPayPostage($shippingType, $payType, $cartInfo, $addr, $payPrice, $postage, $other, $userInfo, $is_gift);
 
-        //赠送商品计算
-        $payPrice = bcadd($payPrice, $priceGroup['giftPrice'], 2);
-
         $result = [
             'total_price' => $priceGroup['totalPrice'],
-            'gift_price' => $priceGroup['giftPrice'],
+            'gift_price' => 0,
             'pay_price' => $payPrice > 0 ? $payPrice : 0,
             'pay_postage' => $payPostage,
             'coupon_price' => $couponPrice ?? 0,
@@ -322,9 +314,10 @@ class StoreOrderComputedServices extends BaseServices
         $sumPrice = $this->getOrderSumPrice($cartInfo, 'sum_price');//获取订单原总金额
         $totalPrice = $this->getOrderSumPrice($cartInfo, 'truePrice');//获取订单svip、用户等级优惠之后总金额
         $costPrice = $this->getOrderSumPrice($cartInfo, 'costPrice');//获取订单成本价
-        $vipPrice = $this->getOrderSumPrice($cartInfo, 'vip_truePrice');//获取订单等级和付费会员总优惠金额
-        $levelPrice = $this->getOrderSumPrice($cartInfo, 'level');//获取会员等级优惠
-        $memberPrice = $this->getOrderSumPrice($cartInfo, 'member');//获取付费会员优惠
+        // 新业务不启用会员价，兼容字段保持零值。
+        $vipPrice = 0;
+        $levelPrice = 0;
+        $memberPrice = 0;
 
         // 判断商品包邮和固定运费
         foreach ($cartInfo as $key => &$item) {
@@ -464,21 +457,9 @@ class StoreOrderComputedServices extends BaseServices
                 }
             }
         }
-        //会员邮费享受折扣
+        // 新业务不启用会员运费折扣，保留普通运费模板的原始计算。
         if ($storePostage) {
             $express_rule_number = 100;
-            if (!$userInfo) {
-                /** @var UserServices $userService */
-                $userService = app()->make(UserServices::class);
-                $userInfo = $userService->getUserInfo($addr['uid']);
-            }
-            if ($userInfo && isset($userInfo['is_money_level']) && $userInfo['is_money_level'] > 0) {
-                //看是否开启会员折扣奖励
-                /** @var MemberCardServices $memberCardService */
-                $memberCardService = app()->make(MemberCardServices::class);
-                $express_rule_number = $memberCardService->isOpenMemberCard('express');
-                $express_rule_number = $express_rule_number <= 0 ? 0 : $express_rule_number;
-            }
             $discountRate = bcdiv($express_rule_number, 100, 4);
             $truePostageArr = [];
             foreach ($postageArr as $postitem) {

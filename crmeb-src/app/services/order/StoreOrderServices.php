@@ -188,11 +188,12 @@ class StoreOrderServices extends BaseServices
         $data['no_refund_count'] = (string)$storeOrderRefundServices->count($refund_where + ['refund_type' => 3]);
         $data['refunded_count'] = (string)$storeOrderRefundServices->count($refund_where + ['refund_type' => 6]);
         $data['refund_count'] = bcadd(bcadd($data['refunding_count'], $data['refunded_count'], 0), $data['no_refund_count'], 0);
-        $data['yue_pay_status'] = (int)sys_config('balance_func_status') && (int)sys_config('yue_pay_status') == 1 ? (int)1 : (int)2;//余额支付 1 开启 2 关闭
+        // 3D 打印业务不提供余额支付、好友代付或会员权益。
+        $data['yue_pay_status'] = 2;
         $data['pc_order_count'] = $data['order_count'] + $data['refunding_count'] + $data['refunded_count'];
         $data['pay_weixin_open'] = sys_config('pay_weixin_open', '0') != '0';//微信支付 1 开启 0 关闭
         $data['ali_pay_status'] = sys_config('ali_pay_status', '0') != '0';//支付包支付 1 开启 0 关闭
-        $data['friend_pay_status'] = (int)sys_config('friend_pay_status') ?? 0;//好友代付 1 开启 0 关闭
+        $data['friend_pay_status'] = 0;
         return $data;
     }
 
@@ -1838,6 +1839,8 @@ HTML;
      */
     public function getOrderConfirmData(array $user, $cartId, bool $new, int $addressId, int $shipping_type = 1, int $is_gift = 0)
     {
+        // 新业务不支持礼物订单，保留参数仅兼容旧版共用接口。
+        $is_gift = 0;
         $addr = [];
         /** @var UserAddressServices $addressServices */
         $addressServices = app()->make(UserAddressServices::class);
@@ -1870,7 +1873,7 @@ HTML;
         $validCartInfo = $priceGroup['cartInfo'] ?? $validCartInfo;
         $other = [
             'offlinePostage' => sys_config('offline_postage'),
-            'integralRatio' => sys_config('integral_ratio')
+            'integralRatio' => 0
         ];
         $cartIdA = explode(',', $cartId);
         $seckill_id = 0;
@@ -1879,13 +1882,10 @@ HTML;
         $advance_id = 0;
         if (count($cartIdA) == 1) {
             $seckill_id = $cartGroup['deduction']['seckill_id'] ?? 0;
-            $combination_id = $cartGroup['deduction']['combination_id'] ?? 0;
-            $bargain_id = $cartGroup['deduction']['bargain_id'] ?? 0;
-            $advance_id = $cartGroup['deduction']['advance_id'] ?? 0;
         }
         $data['valid_count'] = count($validCartInfo);
-        $data['virtual_type'] = $data['valid_count'] ? (int)$validCartInfo[0]['productInfo']['virtual_type'] > 0 : 0;
-        $data['deduction'] = $seckill_id || $combination_id || $bargain_id || $advance_id;
+        $data['virtual_type'] = 0;
+        $data['deduction'] = (bool)$seckill_id;
         $data['addressInfo'] = $addr;
         $data['seckill_id'] = $seckill_id;
         $data['combination_id'] = $combination_id;
@@ -1897,21 +1897,13 @@ HTML;
         $data['priceGroup'] = $priceGroup;
         $data['orderKey'] = $this->cacheOrderInfo($user['uid'], $validCartInfo, $priceGroup, $other);
         $data['offlinePostage'] = $other['offlinePostage'];
-        /** @var UserLevelServices $levelServices */
-        $levelServices = app()->make(UserLevelServices::class);
-        $userLevel = $levelServices->getUerLevelInfoByUid($user['uid']);
         if (isset($user['pwd'])) unset($user['pwd']);
-        $user['vip'] = $userLevel !== false;
-        if ($user['vip']) {
-            $user['vip_id'] = $userLevel['id'] ?? 0;
-            $user['discount'] = $userLevel['discount'] ?? 0;
-        }
         $data['userInfo'] = $user;
-        $data['integralRatio'] = $other['integralRatio'];
+        $data['integralRatio'] = 0;
         $data['offline_pay_status'] = (int)sys_config('offline_pay_status') ?? (int)2;
-        $data['yue_pay_status'] = (int)sys_config('balance_func_status') && (int)sys_config('yue_pay_status') == 1 ? (int)1 : (int)2;//余额支付 1 开启 2 关闭
+        $data['yue_pay_status'] = 2;
         $data['pay_weixin_open'] = sys_config('pay_weixin_open', '0') != '0';//微信支付 1 开启 0 关闭
-        $data['friend_pay_status'] = (int)sys_config('friend_pay_status') ?? 0;//好友代付 1 开启 0 关闭
+        $data['friend_pay_status'] = 0;
         $data['store_self_mention'] = (int)sys_config('store_self_mention') ?? 0;//门店自提是否开启
         /** @var SystemStoreServices $systemStoreServices */
         $systemStoreServices = app()->make(SystemStoreServices::class);
@@ -1926,13 +1918,8 @@ HTML;
         $data['invoice_func'] = $invoice_func['invoice_func'];
         $data['special_invoice'] = $invoice_func['special_invoice'];
 
-        /** @var UserBillServices $userBillServices */
-        $userBillServices = app()->make(UserBillServices::class);
-        $data['usable_integral'] = bcsub((string)$user['integral'], (string)$userBillServices->getBillSum(['uid' => $user['uid'], 'is_frozen' => 1]), 0);
-        $data['integral_open'] = sys_config('integral_ratio', 0) > 0;
-
-        //自动领取优惠券
-        app()->make(StoreCouponUserServices::class)->autoReceiveCoupon($user['uid'], $cartGroup);
+        $data['usable_integral'] = 0;
+        $data['integral_open'] = false;
         return $data;
     }
 
@@ -2022,25 +2009,20 @@ HTML;
      */
     public function checkPaytype(string $payType)
     {
+        if (!in_array($payType, [PayServices::WEIXIN_PAY, PayServices::ALIAPY_PAY, PayServices::OFFLINE_PAY], true)) {
+            return false;
+        }
         $res = false;
         switch ($payType) {
             case PayServices::WEIXIN_PAY:
                 $res = sys_config('pay_weixin_open', '0') != '0';
                 break;
-            case PayServices::YUE_PAY:
-                $res = sys_config('balance_func_status') && sys_config('yue_pay_status') == 1;
-                break;
-            case 'offline':
+            case PayServices::OFFLINE_PAY:
                 $res = sys_config('offline_pay_status') == 1;
                 break;
             case PayServices::ALIAPY_PAY:
                 $res = sys_config('ali_pay_status', '0') != '0';
                 break;
-            case PayServices::FRIEND:
-                $res = sys_config('friend_pay_status', 1) == 1;
-                break;
-            case PayServices::ALLIN_PAY:
-                $res = sys_config('allin_pay_status') == 1;
         }
         return $res;
     }
@@ -2791,10 +2773,10 @@ HTML;
             }
         }
         $order['mapKey'] = sys_config('tengxun_map_key');
-        $order['yue_pay_status'] = (int)sys_config('balance_func_status') && (int)sys_config('yue_pay_status') == 1 ? (int)1 : (int)2;//余额支付 1 开启 2 关闭
+        $order['yue_pay_status'] = 2;
         $order['pay_weixin_open'] = sys_config('pay_weixin_open') != '0';//微信支付 1 开启 0 关闭
         $order['ali_pay_status'] = sys_config('ali_pay_status', '0') != '0';//支付包支付 1 开启 0 关闭
-        $order['friend_pay_status'] = (int)sys_config('friend_pay_status') ?? 0;//好友代付 1 开启 0 关闭
+        $order['friend_pay_status'] = 0;
         $orderData = $this->tidyOrder($order, true, true);
         $vipTruePrice = $memberPrice = $levelPrice = 0;
         foreach ($orderData['cartInfo'] ?? [] as $key => $cart) {
@@ -3008,13 +2990,13 @@ HTML;
             'ali_pay_status' => sys_config('ali_pay_status', '0') != '0',
             'wechat_pay_status' => sys_config('pay_weixin_open', '0') != '0',
             'offline_pay_status' => (int)sys_config('offline_pay_status') == 1,
-            'friend_pay_status' => (int)sys_config('friend_pay_status') == 1,
-            'yue_pay_status' => (int)sys_config('balance_func_status') && (int)sys_config('yue_pay_status') == 1,
+            'friend_pay_status' => false,
+            'yue_pay_status' => false,
         ];
 
         $data['order_id'] = $orderId;
         $data['pay_price'] = '0';
-        $data['now_money'] = app()->make(UserServices::class)->value(['uid' => $uid], 'now_money');
+        $data['now_money'] = 0;
 
         switch ($type) {
             case 'order':

@@ -145,28 +145,23 @@ class StoreOrderCreateServices extends BaseServices
      */
     public function createOrder($uid, $key, $userInfo, $addressId, $payType, $useIntegral = false, $couponId = 0, $mark = '', $combinationId = 0, $pinkId = 0, $seckillId = 0, $bargainId = 0, $shippingType = 1, $real_name = '', $phone = '', $storeId = 0, $news = false, $advanceId = 0, $customForm = [], $invoice_id = 0, $is_gift = 0, $gift_mark = '')
     {
+        // 3D 打印业务的新订单只保留成品、定制打印和秒杀字段。
+        // 旧参数继续保留在方法签名中以兼容共用调用方，但不能绕过业务边界写入订单。
+        $useIntegral = false;
+        $couponId = 0;
+        $combinationId = 0;
+        $pinkId = 0;
+        $bargainId = 0;
+        $advanceId = 0;
+        $is_gift = 0;
+        $gift_mark = '';
         /** @var StoreOrderServices $orderService */
         $storeOrderServices = app()->make(StoreOrderServices::class);
-        $bargainServices = app()->make(StoreBargainServices::class);
         $cartGroup = $storeOrderServices->getCacheOrderInfo($uid, $key);
         if (!$cartGroup) {
             throw new ApiException('订单已过期,请刷新当前页面');
         }
-        //下单前砍价验证
-        if ($bargainId) {
-            $bargainServices->checkBargainUser((int)$bargainId, $uid);
-        }
-
-        if ($pinkId) {
-            $pinkId = (int)$pinkId;
-            /** @var StorePinkServices $pinkServices */
-            $pinkServices = app()->make(StorePinkServices::class);
-            if ($pinkServices->isPink($pinkId, $uid))
-                throw new ApiStatusException('ORDER_EXIST', '订单生成失败，你已经在该团内不能再参加了', ['orderId' => $storeOrderServices->getStoreIdPink($pinkId, $uid)]);
-            if ($storeOrderServices->getIsOrderPink($pinkId, $uid))
-                throw new ApiStatusException('ORDER_EXIST', '订单生成失败，你已经参加该团了，请先支付订单', ['orderId' => $storeOrderServices->getStoreIdPink($pinkId, $uid)]);
-        }
-        $virtual_type = $cartGroup['cartInfo'][0]['productInfo']['virtual_type'] ?? 0;
+        $virtual_type = 0;
 
         //下单前发票验证
         if ($invoice_id) {
@@ -217,23 +212,10 @@ class StoreOrderCreateServices extends BaseServices
             $cartIds[] = $cart['id'];
             $totalNum += $cart['cart_num'];
             if (!$seckillId) $seckillId = $cart['seckill_id'];
-            if (!$bargainId) $bargainId = $cart['bargain_id'];
-            if (!$combinationId) $combinationId = $cart['combination_id'];
-            if (!$advanceId) $advanceId = $cart['advance_id'];
-            $cartInfoGainIntegral = isset($cart['productInfo']['give_integral']) ? bcmul((string)$cart['cart_num'], (string)$cart['productInfo']['give_integral'], 0) : 0;
-            $gainIntegral = bcadd((string)$gainIntegral, (string)$cartInfoGainIntegral, 0);
         }
-        if (count($cartInfo) == 1 && isset($cartInfo[0]['productInfo']['presale']) && $cartInfo[0]['productInfo']['presale'] == 1) {
-            $advance_id = $cartInfo[0]['product_id'];
-        } else {
-            $advance_id = 0;
-        }
-        $deduction = $seckillId || $bargainId || $combinationId;
-        if ($deduction) {
-            $couponId = 0;
-            $gainIntegral = 0;
-            $useIntegral = false;
-        }
+        $advance_id = 0;
+        $deduction = (int)$seckillId > 0;
+        $gainIntegral = 0;
         //$shipping_type = 1 快递发货 $shipping_type = 2 门店自提
         $storeSelfMention = sys_config('store_self_mention') ?? 0;
         if (!$storeSelfMention) $shippingType = 1;
@@ -249,22 +231,22 @@ class StoreOrderCreateServices extends BaseServices
             'total_num' => $totalNum,
             'total_price' => $priceGroup['totalPrice'],
             'total_postage' => $shippingType == 1 ? $priceGroup['storePostage'] : 0,
-            'coupon_id' => $couponId,
-            'coupon_price' => $priceData['coupon_price'],
+            'coupon_id' => 0,
+            'coupon_price' => 0,
             'pay_price' => $priceData['pay_price'],
             'pay_postage' => $priceData['pay_postage'],
-            'deduction_price' => $priceData['deduction_price'],
-            'gift_price' => $priceData['gift_price'],
+            'deduction_price' => 0,
+            'gift_price' => 0,
             'paid' => 0,
             'pay_type' => $payType,
-            'use_integral' => $priceData['usedIntegral'],
-            'gain_integral' => $gainIntegral,
+            'use_integral' => 0,
+            'gain_integral' => 0,
             'mark' => htmlspecialchars($mark),
-            'combination_id' => $combinationId,
-            'pink_id' => $pinkId,
+            'combination_id' => 0,
+            'pink_id' => 0,
             'seckill_id' => $seckillId,
-            'bargain_id' => $bargainId,
-            'advance_id' => $advance_id,
+            'bargain_id' => 0,
+            'advance_id' => 0,
             'cost' => $priceGroup['costPrice'],
             'add_time' => time(),
             'unique' => $key,
@@ -274,8 +256,8 @@ class StoreOrderCreateServices extends BaseServices
             'spread_uid' => 0,
             'spread_two_uid' => 0,
             'virtual_type' => $virtual_type,
-            'is_gift' => $is_gift,
-            'gift_mark' => $gift_mark,
+            'is_gift' => 0,
+            'gift_mark' => '',
             'pay_uid' => $uid,
             'custom_form' => json_encode($customForm),
             'division_id' => $userInfo['division_id'],
@@ -294,8 +276,8 @@ class StoreOrderCreateServices extends BaseServices
         }
         /** @var StoreOrderCartInfoServices $cartServices */
         $cartServices = app()->make(StoreOrderCartInfoServices::class);
-        $priceData['coupon_id'] = $couponId;
-        $order = $this->transaction(function () use ($cartIds, $orderInfo, $cartInfo, $key, $userInfo, $useIntegral, $priceData, $combinationId, $seckillId, $bargainId, $cartServices, $uid, $addressId, $advanceId) {
+        $priceData['coupon_id'] = 0;
+        $order = $this->transaction(function () use ($cartIds, $orderInfo, $cartInfo, $key, $userInfo, $useIntegral, $priceData, $cartServices, $uid, $addressId, $seckillId) {
             //创建订单
             $order = $this->dao->save($orderInfo);
             if (!$order) {
@@ -306,12 +288,8 @@ class StoreOrderCreateServices extends BaseServices
             $userService = app()->make(UserServices::class);
             $realName = $userService->value(['uid' => $uid], 'real_name');
             if ($realName == '') $userService->update(['uid' => $uid], ['real_name' => $orderInfo['real_name'], 'record_phone' => $orderInfo['user_phone']]);
-            //积分抵扣
-            if ($priceData['usedIntegral'] > 0) {
-                $this->deductIntegral($userInfo, $useIntegral, $priceData, (int)$userInfo['uid'], $order['id']);
-            }
             //扣库存
-            $this->decGoodsStock($cartInfo, $combinationId, $seckillId, $bargainId, $advanceId);
+            $this->decGoodsStock($cartInfo, 0, $seckillId, 0, 0);
             //保存购物车商品信息
             $cartServices->setCartInfo($order['id'], $uid, $cartInfo);
             return $order;
@@ -419,7 +397,7 @@ class StoreOrderCreateServices extends BaseServices
     }
 
     /**
-     * 订单数据创建之后的商品实际金额计算，佣金计算，优惠折扣计算，设置默认地址，清理购物车
+     * 订单数据创建之后的商品实际金额计算，设置默认地址，清理购物车
      * @param $order
      * @param array $group
      * @param $activity
@@ -444,68 +422,37 @@ class StoreOrderCreateServices extends BaseServices
             $cartServices = app()->make(StoreCartServices::class);
             $cartServices->deleteCartStatus($group['cartIds']);
         }
-        $uid = (int)$order['uid'];
         $orderId = (int)$order['id'];
         try {
             $cartInfo = $group['cartInfo'] ?? [];
             $priceData = $group['priceData'] ?? [];
             $addressId = $group['addressId'] ?? 0;
-            $spread_ids = [];
             /** @var StoreOrderCreateServices $createService */
             $createService = app()->make(StoreOrderCreateServices::class);
             if ($cartInfo && $priceData) {
                 /** @var StoreOrderCartInfoServices $cartServices */
                 $cartServices = app()->make(StoreOrderCartInfoServices::class);
-                [$cartInfo, $spread_ids] = $createService->computeOrderProductTruePrice($cartInfo, $priceData, $addressId, $uid, $order);
+                [$cartInfo, $spread_ids] = $createService->computeOrderProductTruePrice($cartInfo, $priceData, $addressId, (int)$order['uid'], $order);
                 $cartServices->updateCartInfo($orderId, $cartInfo);
             }
-
-            $orderData = [];
-            $spread_uid = $spread_two_uid = 0;
-            /** @var UserServices $userServices */
-            $userServices = app()->make(UserServices::class);
-            if ($spread_ids) {
-                [$spread_uid, $spread_two_uid] = $spread_ids;
-                $orderData['spread_uid'] = $spread_uid;
-                $orderData['spread_two_uid'] = $spread_two_uid;
-            } else {
-                $spread_uid = $userServices->getSpreadUid($uid);
-                $orderData = ['spread_uid' => 0, 'spread_two_uid' => 0];
-                if ($spread_uid) {
-                    $orderData['spread_uid'] = $spread_uid;
-                }
-                if ($spread_uid > 0 && sys_config('brokerage_level') == 2) {
-                    $spread_two_uid = $userServices->getSpreadUid($spread_uid, [], false);
-                    if ($spread_two_uid) {
-                        $orderData['spread_two_uid'] = $spread_two_uid;
-                    }
-                }
-            }
-            $isCommission = 0;
-            if ($order['combination_id']) {
-                //检测拼团是否参与返佣
-                $isCommission = app()->make(StoreCombinationServices::class)->value(['id' => $order['combination_id']], 'is_commission');
-            }
-            if ($order['seckill_id']) {
-                //检测秒杀是否参与返佣
-                $isCommission = app()->make(StoreSeckillServices::class)->value(['id' => $order['seckill_id']], 'is_commission');
-            }
-            if ($order['bargain_id']) {
-                //检测砍价是否参与返佣
-                $isCommission = app()->make(StoreBargainServices::class)->value(['id' => $order['bargain_id']], 'is_commission');
-            }
-            if ($cartInfo && (!$activity || $isCommission)) {
-                /** @var StoreOrderComputedServices $orderComputed */
-                $orderComputed = app()->make(StoreOrderComputedServices::class);
-                if ($userServices->checkUserPromoter($spread_uid)) $orderData['one_brokerage'] = $orderComputed->getOrderSumPrice($cartInfo, 'one_brokerage', false);
-                if ($userServices->checkUserPromoter($spread_two_uid)) $orderData['two_brokerage'] = $orderComputed->getOrderSumPrice($cartInfo, 'two_brokerage', false);
-                $orderData['staff_brokerage'] = $orderComputed->getOrderSumPrice($cartInfo, 'staff_brokerage', false);
-                $orderData['agent_brokerage'] = $orderComputed->getOrderSumPrice($cartInfo, 'agent_brokerage', false);
-                $orderData['division_brokerage'] = $orderComputed->getOrderSumPrice($cartInfo, 'division_brokerage', false);
-            }
-            $createService->update(['id' => $orderId], $orderData);
+            // 新订单不建立分销关系，也不计算任何佣金；兼容字段统一保持零值。
+            $createService->update(['id' => $orderId], [
+                'spread_uid' => 0,
+                'spread_two_uid' => 0,
+                'one_brokerage' => 0,
+                'two_brokerage' => 0,
+                'staff_brokerage' => 0,
+                'agent_brokerage' => 0,
+                'division_brokerage' => 0,
+                'coupon_id' => 0,
+                'coupon_price' => 0,
+                'deduction_price' => 0,
+                'use_integral' => 0,
+                'gain_integral' => 0,
+                'gift_price' => 0,
+            ]);
         } catch (\Throwable $e) {
-            throw new ApiException('计算订单实际优惠、积分、邮费、佣金失败，原因：' . $e->getMessage());
+            throw new ApiException('订单后置处理失败，原因：' . $e->getMessage());
         }
     }
 
@@ -525,38 +472,16 @@ class StoreOrderCreateServices extends BaseServices
             $cart['integral_price'] = 0.00;
             $cart['coupon_price'] = 0.00;
         }
-        try {
-            $cartInfo = $this->computeOrderProductCoupon($cartInfo, $priceData);
-            $cartInfo = $this->computeOrderProductIntegral($cartInfo, $priceData);
-        } catch (\Throwable $e) {
-            Log::error('订单商品结算失败,File：' . $e->getFile() . ',Line：' . $e->getLine() . ',Message：' . $e->getMessage());
-            throw new ApiException('订单商品结算失败');
-        }
         //truePice实际支付单价（存在）
-        //几件商品总体优惠 以及积分抵扣金额
+        //新业务无优惠券和积分抵扣，直接记录商品原始成交价。
         foreach ($cartInfo as &$cart) {
-            $coupon_price = $cart['coupon_price'] ?? 0;
-            $integral_price = $cart['integral_price'] ?? 0;
             $cart['sum_true_price'] = bcmul((string)$cart['truePrice'], (string)$cart['cart_num'], 2);
-            if ($coupon_price) {
-                $cart['sum_true_price'] = bcsub((string)$cart['sum_true_price'], (string)$coupon_price, 2);
-                $uni_coupon_price = (string)bcdiv((string)$coupon_price, (string)$cart['cart_num'], 4);
-                $cart['truePrice'] = $cart['truePrice'] > $uni_coupon_price ? bcsub((string)$cart['truePrice'], $uni_coupon_price, 2) : 0;
-            }
-            if ($integral_price) {
-                $cart['sum_true_price'] = bcsub((string)$cart['sum_true_price'], (string)$integral_price, 2);
-                $uni_integral_price = (string)bcdiv((string)$integral_price, (string)$cart['cart_num'], 4);
-                $cart['truePrice'] = $cart['truePrice'] > $uni_integral_price ? bcsub((string)$cart['truePrice'], $uni_integral_price, 2) : 0;
-            }
-            if ($cart['sum_true_price'] < 0) $cart['sum_true_price'] = '0.00';
+            $cart['use_integral'] = 0;
+            $cart['integral_price'] = 0.00;
+            $cart['coupon_price'] = 0.00;
+            $cart['coupon_id'] = 0;
         }
-        try {
-            [$cartInfo, $spread_ids] = $this->computeOrderProductBrokerage($uid, $cartInfo);
-        } catch (\Throwable $e) {
-            Log::error('订单商品结算失败,File：' . $e->getFile() . ',Line：' . $e->getLine() . ',Message：' . $e->getMessage());
-            throw new ApiException('订单商品结算失败');
-        }
-        return [$cartInfo, $spread_ids];
+        return [$cartInfo, []];
     }
 
     /**

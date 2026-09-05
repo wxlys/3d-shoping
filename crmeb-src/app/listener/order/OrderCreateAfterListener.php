@@ -77,20 +77,12 @@ class OrderCreateAfterListener implements ListenerInterface
     public function pushJob(int $orderId, int $combinationId, int $seckillId, int $bargainId)
     {
         //系统预设取消订单时间段
-        $keyValue = ['order_cancel_time', 'order_activity_time', 'order_bargain_time', 'order_seckill_time', 'order_pink_time'];
+        $keyValue = ['order_cancel_time', 'order_seckill_time'];
         //获取配置
         $systemValue = SystemConfigService::more($keyValue);
         //格式化数据
         $systemValue = Arr::setValeTime($keyValue, is_array($systemValue) ? $systemValue : []);
-        if ($combinationId) {
-            $secs = $systemValue['order_pink_time'] ?: $systemValue['order_activity_time'];
-        } elseif ($seckillId) {
-            $secs = $systemValue['order_seckill_time'] ?: $systemValue['order_activity_time'];
-        } elseif ($bargainId) {
-            $secs = $systemValue['order_bargain_time'] ?: $systemValue['order_activity_time'];
-        } else {
-            $secs = $systemValue['order_cancel_time'];
-        }
+        $secs = $seckillId ? $systemValue['order_seckill_time'] : $systemValue['order_cancel_time'];
         //未支付10分钟后发送短信
         UnpaidOrderSend::dispatchSecs(600, [$orderId]);
         //未支付根据系统设置事件取消订单
