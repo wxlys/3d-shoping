@@ -294,6 +294,11 @@ export default {
       type: Boolean,
       default: false,
     },
+    // 是否为个人中心（个人中心只展示业务入口，不展示商品流）
+    isUserPage: {
+      type: Boolean,
+      default: false,
+    },
     // 页面滚动状态
     isScrolled: {
       type: Boolean,
@@ -462,6 +467,15 @@ export default {
         "signIn",
         "home_paid_vip",
       ];
+      const userProductComponents = [
+        "goodList",
+        "goodRecommend",
+        "promotionList",
+        "seckill",
+      ];
+      if (this.isUserPage && userProductComponents.includes(item && item.name)) {
+        return false;
+      }
       return !!item && !disabledComponents.includes(item.name);
     },
     reconnect() {

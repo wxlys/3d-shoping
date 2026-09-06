@@ -23,6 +23,7 @@
       :style="colorStyle"
       :diyData="currentDiyData"
       :isHome="false"
+      :isUserPage="true"
       :isScrolled="isScrolled"
       :isFixed="isFixed"
       :belongIndex="belongIndex"
