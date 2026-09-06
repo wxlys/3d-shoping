@@ -72,7 +72,6 @@ import { createPrintInquiry, getPrintFileInfo, getPrintFileList } from '@/api/pr
 export default {
   data() {
     return {
-      productId: 0,
       requestedFileId: 0,
       uploading: false,
       submitting: false,
@@ -93,7 +92,6 @@ export default {
     };
   },
   onLoad(options) {
-    this.productId = Number(options.product_id || 0);
     this.requestedFileId = Number(options.file_id || 0);
     this.loadFiles();
   },

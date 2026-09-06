@@ -601,8 +601,9 @@ class StoreProductServices extends BaseServices
      */
     public function save(int $id, array $data)
     {
-        $data['product_type'] = in_array((int)($data['product_type'] ?? 0), [0, 1]) ? (int)$data['product_type'] : 0;
-        // 业务收敛：商品只允许实体成品和定制打印，旧商城营销字段统一归零。
+        // 定制打印是独立询价服务，不属于商品；后台新增、编辑商品始终保存为成品。
+        $data['product_type'] = 0;
+        // 业务收敛：商品只允许实体成品，旧商城营销字段统一归零。
         // 这里在服务层再次约束，避免旧版后台、缓存或第三方调用绕过前端限制。
         $data['virtual_type'] = 0;
         $data['is_virtual'] = 0;

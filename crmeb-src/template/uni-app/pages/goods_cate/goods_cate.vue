@@ -1,5 +1,12 @@
 <template>
-	<view :style="colorStyle">
+	<view class="category-page" :style="colorStyle">
+		<view class="print-service" @click="goPrintInquiry">
+			<view class="print-service__content">
+				<view class="print-service__title">定制打印</view>
+				<view class="print-service__desc">上传模型，选择尺寸、材料和数量，获取专属报价</view>
+			</view>
+			<view class="print-service__action">立即询价 <text class="iconfont icon-xiangyou"></text></view>
+		</view>
 		<goodsCate1 v-if="category == 1" ref="classOne" :isNew="isNew"></goodsCate1>
 		<goodsCate2 v-if="category == 2" ref="classTwo" :isNew="isNew" @jumpIndex="jumpIndex"></goodsCate2>
 		<goodsCate3 v-if="category == 3" ref="classThree" :isNew="isNew" @jumpIndex="jumpIndex"></goodsCate3>
@@ -52,6 +59,11 @@
 			uni.$emit("scroll");
 		},
 		methods: {
+			goPrintInquiry() {
+				uni.navigateTo({
+					url: "/pages/print/inquiry/index",
+				});
+			},
 			newDataStatus(val, num) {
 				this.isFooter = val ? true : false;
 				this.showBar = val ? true : false;
@@ -109,6 +121,54 @@
 	};
 </script>
 <style scoped lang="scss">
+	.category-page {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		overflow: hidden;
+	}
+
+	::v-deep .productSort {
+		flex: 1;
+		min-height: 0;
+		height: auto !important;
+	}
+
+	.print-service {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin: 24rpx;
+		padding: 30rpx 28rpx;
+		border-radius: 20rpx;
+		color: #fff;
+		background: linear-gradient(135deg, #f05a3c 0%, #e93323 100%);
+		box-shadow: 0 10rpx 28rpx rgba(233, 51, 35, 0.18);
+	}
+
+	.print-service__content {
+		min-width: 0;
+		padding-right: 20rpx;
+	}
+
+	.print-service__title {
+		font-size: 34rpx;
+		font-weight: 600;
+	}
+
+	.print-service__desc {
+		margin-top: 10rpx;
+		font-size: 24rpx;
+		line-height: 1.5;
+		opacity: 0.9;
+	}
+
+	.print-service__action {
+		flex: none;
+		font-size: 25rpx;
+		white-space: nowrap;
+	}
+
 	::v-deep.mask {
 		z-index: 99;
 	}

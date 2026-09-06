@@ -81,7 +81,6 @@
       <productBottom
         :diyData="diyData"
         :storeInfo="storeInfo"
-        :productType="storeInfo.product_type || 0"
         :is_gift="is_gift"
         :CartCount="CartCount"
         :noGoods="noGoods"
