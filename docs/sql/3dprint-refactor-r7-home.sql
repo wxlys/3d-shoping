@@ -104,8 +104,12 @@ SET @p3 = (SELECT id FROM eb_store_product WHERE spu = 'PH26090600003' LIMIT 1);
 SET @p4 = (SELECT id FROM eb_store_product WHERE spu = 'PH26090600004' LIMIT 1);
 
 INSERT INTO eb_store_product_attr (product_id, attr_name, attr_values, type)
-SELECT p.id, '规格', '["默认"]', 0 FROM eb_store_product p
+SELECT p.id, '规格', '默认', 0 FROM eb_store_product p
 WHERE p.spu LIKE 'PH2609060000_' AND NOT EXISTS (SELECT 1 FROM eb_store_product_attr a WHERE a.product_id = p.id AND a.type = 0);
+
+UPDATE eb_store_product_attr a JOIN eb_store_product p ON p.id = a.product_id
+SET a.attr_values = '默认'
+WHERE p.spu LIKE 'PH2609060000_' AND a.type = 0;
 
 INSERT INTO eb_store_product_attr_value (product_id, suk, stock, price, image, `unique`, cost, ot_price, type, is_show)
 SELECT p.id, '默认', p.stock, p.price, p.image, RIGHT(CONCAT('00000000', p.id), 8), p.cost, p.ot_price, 0, 1
