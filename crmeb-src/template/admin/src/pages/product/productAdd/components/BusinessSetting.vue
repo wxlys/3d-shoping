@@ -1,5 +1,5 @@
 <template>
-  <!-- 业务设置：仅保留成品/定制打印需要的销售与运营字段 -->
+  <!-- 业务设置：仅保留成品需要的销售与运营字段 -->
   <el-row>
     <el-col :span="24">
       <el-form-item label="起购数量：">
@@ -57,11 +57,12 @@
     <el-col :span="24">
       <el-form-item label="商品推荐：">
         <el-checkbox-group v-model="formValidate.recommend">
-          <el-checkbox label="is_hot">热卖单品</el-checkbox>
-          <el-checkbox label="is_best">精品推荐</el-checkbox>
+          <el-checkbox label="is_best">精选商品</el-checkbox>
           <el-checkbox label="is_new">首发新品</el-checkbox>
-          <el-checkbox label="is_good">优品推荐</el-checkbox>
+          <el-checkbox label="is_benefit">好物好价</el-checkbox>
+          <el-checkbox label="is_hot">热门推荐</el-checkbox>
         </el-checkbox-group>
+        <div class="tips-info">勾选后商品会自动进入首页对应栏目；热门推荐按销量、排序值和商品 ID 排序。</div>
       </el-form-item>
     </el-col>
     <el-col :span="24">

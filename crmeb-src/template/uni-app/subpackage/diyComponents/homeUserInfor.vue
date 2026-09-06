@@ -697,7 +697,7 @@ export default {
       return (
         (this.dataConfig.memberConfig && this.dataConfig.memberConfig.list) ||
         []
-      );
+      ).filter((item) => this.isBusinessLink(this.getInfo(item, 2)));
     },
     rightEntryList() {
       return (

@@ -851,7 +851,7 @@
 </template>
 
 <script>
-import { getProductslist, getAttr } from "@/api/store.js";
+import { getProductslist, getGroomList, getAttr } from "@/api/store.js";
 import skuSelect from "@/mixins/skuSelect.js";
 import { toLogin } from "@/libs/login.js";
 import { mapGetters, mapState } from "vuex";
@@ -1232,6 +1232,16 @@ export default {
         return;
       }
       let limit = this.$config.LIMIT;
+      const recommendType = Number(this.dataConfig.recommendType || 0);
+      if (recommendType) {
+        getGroomList(recommendType, {
+          page: 1,
+          limit: this.numberConfig || limit,
+        }).then((res) => {
+          this.tempArr = (res.data && res.data.list) || [];
+        });
+        return;
+      }
       let data = {};
       if (this.typeConfig == 1) {
         const goodsList = this.dataConfig.goodsList.list || [];

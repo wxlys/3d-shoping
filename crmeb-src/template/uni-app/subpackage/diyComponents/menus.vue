@@ -409,7 +409,8 @@ export default {
       let list = this.dataConfig.menuConfig.list || [];
       let menuList = [];
       list.forEach((item) => {
-        if (item.show) {
+        const url = item.info && item.info[1] ? item.info[1].value : "";
+        if (item.show && this.isBusinessLink(url)) {
           menuList.push(item);
         }
       });
@@ -605,6 +606,17 @@ export default {
     });
   },
   methods: {
+    isBusinessLink(url) {
+      if (!url) return false;
+      const disabledPaths = [
+        "goods_combination", "goods_bargain", "user_coupon",
+        "user_get_coupon", "user_integral", "user_sgin", "user_spread",
+        "promoter", "commission", "user_cash", "user_payment",
+        "user_money", "user_vip", "vip_", "vip/", "points_mall",
+        "lottery",
+      ];
+      return !disabledPaths.some((path) => url.includes(path));
+    },
     getSwiperCount() {
       /* rowsNum 显示行数  0: 1行  1: 2行 2: 3行 3 4行 */
       /* number  单行显示  0: 3个  1: 4个 2: 5个 */

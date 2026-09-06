@@ -487,11 +487,10 @@
             </el-form-item>
             <el-form-item label="商品推荐：" v-if="batchType == 6">
               <el-checkbox-group v-model="batchFormData.recommend">
-                <el-checkbox label="is_hot">热卖单品</el-checkbox>
-                <!-- <el-checkbox label="is_benefit">促销单品</el-checkbox> -->
-                <el-checkbox label="is_best">精品推荐</el-checkbox>
+                <el-checkbox label="is_best">精选商品</el-checkbox>
                 <el-checkbox label="is_new">首发新品</el-checkbox>
-                <el-checkbox label="is_good">优品推荐</el-checkbox>
+                <el-checkbox label="is_benefit">好物好价</el-checkbox>
+                <el-checkbox label="is_hot">热门推荐</el-checkbox>
               </el-checkbox-group>
             </el-form-item>
           </el-col>

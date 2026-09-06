@@ -59,8 +59,8 @@
 				name: '',
 				icon: '',
 				type: 0,
-				typeName: ['', this.$t(`精品推荐`), this.$t(`热门榜单`), this.$t(`首发新品`),
-					this.$t(`促销单品`)
+				typeName: ['', this.$t(`精选商品`), this.$t(`热门推荐`), this.$t(`首发新品`),
+					this.$t(`好物好价`)
 				],
 				autoplay: true,
 				circular: true,

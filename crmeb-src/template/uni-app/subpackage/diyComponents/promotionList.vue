@@ -58,6 +58,7 @@
         <goodList
           ref="goodLists"
           v-if="goodDataConfig"
+          :key="ProductNavindex"
           :dataConfig="goodDataConfig"
           @detail="goDetail"
         ></goodList>
@@ -257,6 +258,7 @@ export default {
         let that = this;
         let type = that.goodType == 0 ? 3 : that.goodType;
         let goodDataConfig = {
+          recommendType: this.getRecommendType(this.ProductNavindex),
           styleConfig: {
             tabVal: 1,
           },
@@ -376,6 +378,7 @@ export default {
     let that = this;
     let type = that.goodType == 0 ? 3 : that.goodType;
     let goodDataConfig = {
+      recommendType: this.getRecommendType(this.ProductNavindex),
       styleConfig: {
         tabVal: 1,
       },
@@ -471,6 +474,13 @@ export default {
     }
   },
   methods: {
+    getRecommendType(index) {
+      const current = this.dataConfig.tabConfig.list[index] || {};
+      const configured = Number(
+        current.recommendType || (current.link && current.link.activeVal) || 0
+      );
+      return configured || [1, 3, 4, 2][index] || 2;
+    },
     observeVideo() {
       this.autoplay = true;
       // let observer = uni.createIntersectionObserver(this, { observeAll: true });
