@@ -58,7 +58,7 @@ WHERE NOT EXISTS (SELECT 1 FROM eb_store_product WHERE spu = 'MW26090600007');
 -- 其他成品 / 节日装饰
 INSERT INTO eb_store_product
   (image, recommend_image, slider_image, store_name, store_info, keyword, cate_id, price, ot_price, unit_name, sort, stock, is_show, is_hot, is_benefit, is_best, is_new, add_time, is_postage, cost, product_type, spec_type, activity, spu, soure_link, logistics, freight, min_qty)
-SELECT 'https://makerworld.bblmw.com/makerworld/model/US6ae15a66fc6a9a/design/2024-11-06_fb13676e75d95.jpg', 'https://makerworld.bblmw.com/makerworld/model/US6ae15a66fc6a9a/design/2024-11-06_fb13676e75d95.jpg', '["https://makerworld.bblmw.com/makerworld/model/US6ae15a66fc6a9a/design/2024-11-06_fb13676e75d95.jpg"]', '礼品包装纸裁切器（Gift Paper Cutter）', '适配 9mm 刀片的节日包装辅助工具，免支撑打印', '礼品包装,裁切器,节日装饰,MakerWorld', '35', 15.90, 22.90, '件', 10, 100, 1, 0, 1, 0, 1, UNIX_TIMESTAMP(), 1, 4.00, 0, 0, '0,1', 'MW26090600008', 'https://makerworld.com/en/models/762321-gift-paper-cutter', '1,2', 2, 1
+SELECT 'https://makerworld.bblmw.com/makerworld/model/US6ae15a66fc6a9a/design/2024-11-06_fb13676e75d95.jpg', 'https://makerworld.bblmw.com/makerworld/model/US6ae15a66fc6a9a/design/2024-11-06_fb13676e75d95.jpg', '["https://makerworld.bblmw.com/makerworld/model/US6ae15a66fc6a9a/design/2024-11-06_fb13676e75d95.jpg"]', '礼品包装纸裁切器（Gift Paper Cutter）', '适配 9mm 刀片的节日包装辅助工具，免支撑打印；刀片需另备', '礼品包装,裁切器,节日装饰,MakerWorld', '35', 15.90, 22.90, '件', 10, 100, 1, 0, 1, 0, 1, UNIX_TIMESTAMP(), 1, 4.00, 0, 0, '0,1', 'MW26090600008', 'https://makerworld.com/en/models/762321-gift-paper-cutter', '1,2', 2, 1
 WHERE NOT EXISTS (SELECT 1 FROM eb_store_product WHERE spu = 'MW26090600008');
 
 -- 为 R8 商品补齐默认规格、SKU、详情和分类辅助关系。
