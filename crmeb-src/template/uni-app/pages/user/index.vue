@@ -32,23 +32,24 @@
       @storeTap="storeTap"
       @changeLogin="changeLogin"
       @goDetail="goDetail"
-    ></PageDesign>
-    <view class="print-services">
-      <view class="print-service" @click="goPrintPage('/pages/print/inquiry_list/index')">
-        <view class="print-service-icon">询</view>
-        <view>
-          <view class="print-service-title">我的询价</view>
-          <view class="print-service-desc">查看报价与定制订单</view>
+    >
+      <view slot="user-services" class="print-services">
+        <view class="print-service" @click="goPrintPage('/pages/print/inquiry_list/index')">
+          <view class="print-service-icon">询</view>
+          <view>
+            <view class="print-service-title">我的询价</view>
+            <view class="print-service-desc">查看报价与定制订单</view>
+          </view>
+        </view>
+        <view class="print-service" @click="goPrintPage('/pages/print/files/index')">
+          <view class="print-service-icon">模</view>
+          <view>
+            <view class="print-service-title">我的文件</view>
+            <view class="print-service-desc">管理并复用模型文件</view>
+          </view>
         </view>
       </view>
-      <view class="print-service" @click="goPrintPage('/pages/print/files/index')">
-        <view class="print-service-icon">模</view>
-        <view>
-          <view class="print-service-title">我的文件</view>
-          <view class="print-service-desc">管理并复用模型文件</view>
-        </view>
-      </view>
-    </view>
+    </PageDesign>
     <image :src="copyRightPic" alt="" class="support"></image>
     <editUserModal
       :isShow="editModal"

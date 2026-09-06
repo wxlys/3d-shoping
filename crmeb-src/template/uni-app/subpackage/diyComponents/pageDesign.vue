@@ -191,6 +191,10 @@
               @changeLogin="changeLogin"
             ></customComponent>
           </view>
+          <slot
+            v-if="isUserPage && isUserNavigationGroup(item)"
+            name="user-services"
+          ></slot>
         </block>
 
         <!-- 插槽：用于展示分类商品列表或其他底部内容 -->
@@ -294,7 +298,7 @@ export default {
       type: Boolean,
       default: false,
     },
-    // 是否为个人中心（个人中心只展示业务入口，不展示商品流）
+    // 是否为个人中心（用于把固定业务入口插入功能导航组之后）
     isUserPage: {
       type: Boolean,
       default: false,
@@ -467,16 +471,22 @@ export default {
         "signIn",
         "home_paid_vip",
       ];
-      const userProductComponents = [
-        "goodList",
-        "goodRecommend",
-        "promotionList",
-        "seckill",
-      ];
-      if (this.isUserPage && userProductComponents.includes(item && item.name)) {
-        return false;
-      }
       return !!item && !disabledComponents.includes(item.name);
+    },
+    isUserNavigationGroup(item) {
+      if (!item || item.name !== "menus") return false;
+      const list =
+        item.menuConfig && Array.isArray(item.menuConfig.list)
+          ? item.menuConfig.list
+          : [];
+      return list.some((menu) => {
+        const info = menu && menu.info;
+        return (
+          info &&
+          info[1] &&
+          info[1].value === "/pages/extension/customer_list/chat"
+        );
+      });
     },
     reconnect() {
       this.$emit("reconnect");
