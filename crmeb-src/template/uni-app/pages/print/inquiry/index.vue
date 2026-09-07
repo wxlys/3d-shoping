@@ -129,7 +129,10 @@ export default {
         count: 1,
         extension: ['stl', 'obj', '3mf', 'stp', 'step'],
         success: (res) => {
-          const file = (res.tempFiles && res.tempFiles[0]) || { path: res.tempFilePaths && res.tempFilePaths[0] };
+          const file = (res.tempFiles && res.tempFiles[0]) || {
+            path: res.tempFilePaths && res.tempFilePaths[0],
+            name: res.name || res.fileName || '',
+          };
           this.uploadSelectedFile(file);
         },
       });
@@ -141,10 +144,12 @@ export default {
         return;
       }
       this.uploading = true;
+      const originalName = file.name || file.fileName || file.originalName || '';
       uni.uploadFile({
         url: `${HTTP_REQUEST_URL}/api/print/file/upload`,
         filePath: file.path || file.tempFilePath,
         name: 'file',
+        formData: originalName ? { original_name: originalName } : {},
         header: {
           [TOKENNAME]: `Bearer ${this.$store.state.app.token}`,
         },

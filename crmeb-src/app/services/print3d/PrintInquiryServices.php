@@ -57,8 +57,16 @@ class PrintInquiryServices
             throw new ApiException('请上传模型文件');
         }
 
+        // H5/uni-app may upload a temporary path whose server-side original
+        // name is only the extension (for example ".3mf"). Prefer the
+        // explicit client-side name when it is available, while keeping the
+        // framework-provided name as the native-client fallback.
         $originalName = trim((string)$file->getOriginalName());
-        $fileName = basename(str_replace('\\', '/', $originalName));
+        $originalName = basename(str_replace('\\', '/', $originalName));
+        $clientName = $request->post('original_name', '');
+        $clientName = is_scalar($clientName) ? trim((string)$clientName) : '';
+        $clientName = basename(str_replace('\\', '/', $clientName));
+        $fileName = $clientName ?: $originalName;
         $ext = strtolower((string)pathinfo($fileName, PATHINFO_EXTENSION));
         $allowedExt = $this->getAllowedExtensions();
         if (!$fileName || !$ext || !in_array($ext, $allowedExt, true)) {
@@ -982,12 +990,26 @@ class PrintInquiryServices
     public function formatFile(array $file): array
     {
         $status = (int)($file['status'] ?? 0);
+        $ext = strtolower(trim((string)($file['ext'] ?? '')));
+        $filename = trim((string)($file['filename'] ?? ''));
+        // Older H5 uploads could persist only ".3mf" (or a garbled
+        // placeholder) as the display name. There is no reliable way to
+        // reconstruct the original name, so expose a readable fallback while
+        // preserving all valid names.
+        $isExtensionOnly = $ext !== '' && (
+            strcasecmp($filename, '.' . $ext) === 0 ||
+            strcasecmp($filename, $ext) === 0 ||
+            (bool)preg_match('/^_+\?+\.' . preg_quote($ext, '/') . '$/i', $filename)
+        );
+        if ($filename === '' || $isExtensionOnly) {
+            $filename = $ext !== '' ? '模型文件.' . $ext : '模型文件';
+        }
         return [
             'id' => (int)($file['id'] ?? 0),
             'uid' => (int)($file['uid'] ?? 0),
-            'filename' => (string)($file['filename'] ?? ''),
+            'filename' => $filename,
             'stored_name' => (string)($file['stored_name'] ?? ''),
-            'ext' => strtolower((string)($file['ext'] ?? '')),
+            'ext' => $ext,
             'size' => (int)($file['size'] ?? $file['file_size'] ?? 0),
             'size_text' => $this->formatSize((int)($file['size'] ?? $file['file_size'] ?? 0)),
             'status' => $status,

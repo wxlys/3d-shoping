@@ -822,3 +822,13 @@ git remote -v
 - 已部署文件：`app/api/controller/v1/PublicController.php`；备份目录 `/home/wsr/deploy-backups/personal-center-count-fix-before-20260907-181014/`；线上 SHA-256：`efe504b71a1a453bf930435f0928139728661bc59aace28a23af2034de0aed1d`。
 - 暂存/线上 PHP lint 通过，PHP 容器重启后 `/api/theme_info/user` HTTP 200；本次仅后端修复，不需要重新构建 H5。
 - 待用户回归：重新进入个人中心或下拉刷新，外层角标应与订单页一致（当前用户预期待发货 2、待收货 5）。
+
+### 18.9 定制打印上传文件名显示不完整（已修复后端，前端待重新构建 H5）
+
+- 用户反馈：定制打印上传文件在客户端/后台显示时只剩扩展名（例如 `.3mf`）。线上只读查询确认 `eb_print_file.filename` 确实存在 `.3mf`、以及 `_???.3mf` 这类历史异常值，不是单纯的 CSS 截断。
+- 根因：H5/uni-app 通过临时文件路径上传时，服务端收到的 `getOriginalName()` 可能只有扩展名；前端原上传请求没有把 `uni.chooseFile` 返回的真实 `name` 传给接口。
+- 修复：`PrintInquiryServices::uploadFile()` 接收 `original_name` 表单字段并优先保存客户端文件名，原生客户端仍回退到框架提供的原始名；`formatFile()` 对历史只有扩展名或乱码占位名返回可读兜底名（例如 `模型文件.3mf`），不改写数据库原始记录；uni-app 询价上传页在 `uni.uploadFile` 中传递 `original_name`。
+- 已同步文件：Git 工作区的 `crmeb-src/template/uni-app/pages/print/inquiry/index.vue` 与 HBuilderX 工作目录 `F:\procedure\codex\program\test_project\crmeb-src\template\uni-app\pages\print\inquiry\index.vue` SHA-256 一致（`262d438874384c2de81f56a1ed0c31cef26b0dccd8d1e5c3dad12915f21083c4`）。
+- 已部署后端：服务器备份 `/home/wsr/deploy-backups/print-filename-fix-before-20260907-181651/`；线上 `PrintInquiryServices.php` SHA-256 `10a9ec74905283d656ed182ae02fb308ad5841cb4375fda9cabd982c10df7fb0`；暂存与线上 PHP lint 均通过，PHP 容器重启后运行正常。
+- 线上探针：`formatFile(['filename'=>'.3mf','ext'=>'3mf'])` 返回 `模型文件.3mf`；合法 `desk-tray.3mf` 保持原名；`/api/print/file/list` 未登录请求返回预期 HTTP 200/业务 401。
+- 当前剩余动作：用户需使用 HBuilderX 重新导出并部署 H5，使新上传请求携带真实文件名；旧记录会立即显示可读兜底名，新上传记录在重建后的 H5 上显示真实文件名。后台询价/打印队列复用同一 `formatFile()` 返回值，无需单独改后台。
