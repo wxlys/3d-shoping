@@ -331,14 +331,14 @@ class StoreOrderDao extends BaseDao
                         ->where('is_print', 0)
                         ->where('shipping_type', 1)
                         ->where('is_cancel', 0);
-                })->orWhere(function ($query) {
+                })->whereOr(function ($query) {
                     $query->where('paid', 1)
                         ->whereIn('status', [0, 1])
                         ->where('refund_status', 0)
                         ->where('is_print', 0)
                         ->where('shipping_type', 2)
                         ->where('is_cancel', 0);
-                })->orWhere(function ($query) {
+                })->whereOr(function ($query) {
                     $query->where('paid', 1)
                         ->whereIn('status', [0, 1])
                         ->where('refund_status', 0)

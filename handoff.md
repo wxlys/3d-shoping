@@ -803,3 +803,13 @@ git remote -v
 - 已部署文件：`app/dao/order/StoreOrderDao.php`、`app/services/order/StoreOrderServices.php`；部署备份目录 `/home/wsr/deploy-backups/user-order-buckets-before-20260907-174817/`。
 - 校验结果：暂存/线上 PHP lint 通过；本地与线上 SHA-256 分别为 `320a4ce8c9e20f05228a546beaab88a4bb68ef652217285f6f1917025c8c35ca`、`221d24f80d6604dfd4a26756f083b8b6c3a6ba081927977d6adeb6b168c215ff`；PHP 容器重启后 API HTTP 200；暂存目录已清理。该修复仅涉及后端，不需要重新构建 H5。
 - 待用户回归：刷新/重新登录用户端订单页，确认角标为待发货 2、待收货 5；分别检查配送待发货、普通/秒杀自提、定制排队中/制作中四类订单。若页面仍显示旧角标，先清理客户端缓存后重新请求订单列表接口。
+
+### 18.7 订单角标为 0 的计数接口修复（已实现并部署）
+
+- 用户回归发现：订单列表能够显示订单，但“全部/待付款/待发货/待收货/待评价”角标全部为 0。
+- 根因：`StoreOrderDao::getUserOrderApiQuery()` 使用了当前 ThinkPHP 版本不存在的 `orWhere()`，计数调用实际抛出 `method not exist: think\\db\\Query->orWhere`，前端未显示错误而按缺省值 0 渲染。
+- 修复：将两个条件分支改为框架支持的 `whereOr()`；列表和计数继续共用同一查询条件。
+- 线上探针验证（用户 UID 1）：`unshipped=2`、`received=5`；完整 `getOrderData(1)` 返回 `order_count=17, unpaid=0, unshipped=2, received=5`。
+- 已部署文件：`app/dao/order/StoreOrderDao.php`；备份目录 `/home/wsr/deploy-backups/order-count-fix-before-20260907-180109/`。线上文件 SHA-256：`471697a67afa9f9aef72f3c6951ed0087f1f761c5df0ff1a6f9d0046fa40e839`。
+- 暂存/线上 PHP lint 通过，PHP 容器重启后接口 HTTP 200，探针和临时目录已清理；本次仅后端修复，不需要重新构建 H5。
+- 待用户回归：刷新订单页或重新登录，角标应显示实际数量；若仍为旧值，清理 H5 缓存后重新请求 `/api/order/data`。
