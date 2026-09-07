@@ -17,6 +17,7 @@
             <el-option v-permission="'seckill'" label="秒杀订单" value="3" />
             <el-option v-permission="'bargain'" label="砍价订单" value="4" />
             <el-option label="预售订单" value="5" />
+            <el-option label="定制订单" value="7" />
           </el-select>
         </el-form-item>
         <el-form-item label="支付方式：">

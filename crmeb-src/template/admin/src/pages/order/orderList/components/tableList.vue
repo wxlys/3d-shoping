@@ -16,6 +16,22 @@
       <el-tab-pane name="4" label="已完成"></el-tab-pane>
       <el-tab-pane name="-2" label="已退款"></el-tab-pane>
       <el-tab-pane name="-4" label="已删除"></el-tab-pane>
+      <el-tab-pane
+        name="10"
+        :label="orderChartType.print_unpaid > 0 ? `定制待支付(${orderChartType.print_unpaid})` : `定制待支付`"
+      ></el-tab-pane>
+      <el-tab-pane
+        name="11"
+        :label="orderChartType.print_wait > 0 ? `定制排队中(${orderChartType.print_wait})` : `定制排队中`"
+      ></el-tab-pane>
+      <el-tab-pane
+        name="12"
+        :label="orderChartType.print_printing > 0 ? `定制制作中(${orderChartType.print_printing})` : `定制制作中`"
+      ></el-tab-pane>
+      <el-tab-pane
+        name="13"
+        :label="orderChartType.print_pickup > 0 ? `定制待取件(${orderChartType.print_pickup})` : `定制待取件`"
+      ></el-tab-pane>
     </el-tabs>
     <div class="acea-row">
       <el-button v-auth="['order-write']" type="primary" v-db-click @click="writeOff">订单核销</el-button>
@@ -133,10 +149,92 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="操作" fixed="right" width="170">
+      <el-table-column label="定制排期" min-width="190">
+        <template slot-scope="scope">
+          <template v-if="Number(scope.row.is_print) === 1">
+            <div>预计开始：{{ scope.row.expected_start_at_text || '--' }}</div>
+            <div>预计交付：{{ scope.row.expected_deliver_at_text || '--' }}</div>
+            <div v-if="scope.row.schedule_conflict" style="color: #ed4014">排期冲突，请先调整</div>
+          </template>
+          <span v-else>--</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" fixed="right" width="250">
         <template slot-scope="scope">
           <a v-db-click @click="changeMenu(scope.row, '2')">详情</a>
           <el-divider direction="vertical" />
+          <a
+            v-db-click
+            @click="openSchedule(scope.row)"
+            v-if="
+              Number(scope.row.is_print) === 1 &&
+              Number(scope.row.queue_status) === 1 &&
+              Number(scope.row.paid) === 1 &&
+              Number(scope.row.refund_status) === 0 &&
+              Number(scope.row.is_del) !== 1 &&
+              Number(scope.row.is_cancel) !== 1
+            "
+            >调整排期</a
+          >
+          <el-divider
+            direction="vertical"
+            v-if="
+              Number(scope.row.is_print) === 1 &&
+              Number(scope.row.queue_status) === 1 &&
+              Number(scope.row.paid) === 1 &&
+              Number(scope.row.refund_status) === 0 &&
+              Number(scope.row.is_del) !== 1 &&
+              Number(scope.row.is_cancel) !== 1
+            "
+          />
+          <a
+            v-db-click
+            @click="startPrint(scope.row)"
+            v-if="
+              Number(scope.row.is_print) === 1 &&
+              Number(scope.row.queue_status) === 1 &&
+              Number(scope.row.paid) === 1 &&
+              Number(scope.row.refund_status) === 0 &&
+              Number(scope.row.is_del) !== 1 &&
+              Number(scope.row.is_cancel) !== 1
+            "
+            >开始打印</a
+          >
+          <el-divider
+            direction="vertical"
+            v-if="
+              Number(scope.row.is_print) === 1 &&
+              Number(scope.row.queue_status) === 1 &&
+              Number(scope.row.paid) === 1 &&
+              Number(scope.row.refund_status) === 0 &&
+              Number(scope.row.is_del) !== 1 &&
+              Number(scope.row.is_cancel) !== 1
+            "
+          />
+          <a
+            v-db-click
+            @click="completePrint(scope.row)"
+            v-if="
+              Number(scope.row.is_print) === 1 &&
+              Number(scope.row.queue_status) === 2 &&
+              Number(scope.row.paid) === 1 &&
+              Number(scope.row.refund_status) === 0 &&
+              Number(scope.row.is_del) !== 1 &&
+              Number(scope.row.is_cancel) !== 1
+            "
+            >打印完成</a
+          >
+          <el-divider
+            direction="vertical"
+            v-if="
+              Number(scope.row.is_print) === 1 &&
+              Number(scope.row.queue_status) === 2 &&
+              Number(scope.row.paid) === 1 &&
+              Number(scope.row.refund_status) === 0 &&
+              Number(scope.row.is_del) !== 1 &&
+              Number(scope.row.is_cancel) !== 1
+            "
+          />
           <a
             v-db-click
             @click="sendOrder(scope.row)"
@@ -293,11 +391,11 @@
         class="tabform"
         @submit.native.prevent
       >
-        <el-form-item prop="code" label="核销码：">
+        <el-form-item prop="code" :label="writeOffOrderId ? '取件码：' : '核销码：'">
           <el-input
             style="width: 414px"
             type="text"
-            placeholder="请输入6位取件码或12位核销码"
+            :placeholder="writeOffOrderId ? '请输入用户端显示的6位取件码' : '请输入6位取件码或12位核销码'"
             v-model="writeOffFrom.code"
           />
         </el-form-item>
@@ -340,6 +438,35 @@
         <div class="el-upload__text">批量发货单,拖入上传或<em>点击上传</em></div>
       </el-upload>
     </el-dialog>
+    <el-dialog :visible.sync="scheduleVisible" title="调整定制订单排期" width="480px">
+      <el-form label-width="110px" @submit.native.prevent>
+        <el-form-item label="订单号：">{{ currentScheduleRow.order_id || '--' }}</el-form-item>
+        <el-form-item label="预计开始：">
+          <el-date-picker
+            v-model="scheduleForm.expected_start_at"
+            type="datetime"
+            value-format="timestamp"
+            format="yyyy-MM-dd HH:mm"
+            placeholder="选择预计开始打印时间"
+            style="width: 280px"
+          />
+        </el-form-item>
+        <el-form-item label="预计交付：">
+          <el-date-picker
+            v-model="scheduleForm.expected_deliver_at"
+            type="datetime"
+            value-format="timestamp"
+            format="yyyy-MM-dd HH:mm"
+            placeholder="选择预计交付时间"
+            style="width: 280px"
+          />
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button @click="scheduleVisible = false">取消</el-button>
+        <el-button type="primary" :loading="scheduleSaving" v-db-click @click="saveSchedule">保存</el-button>
+      </div>
+    </el-dialog>
     <orderAddress ref="address" :addressData="addressData" @submitSuccess="submitSuccess"></orderAddress>
   </div>
 </template>
@@ -374,6 +501,7 @@ import { getCookies } from '@/libs/util';
 import createWorkBook from '@/vendor/newToExcel.js';
 import { isFileUpload } from '@/utils';
 import orderAddress from '../handle/orderAddress.vue';
+import { printQueueAdjust, printQueueComplete, printQueueStart } from '@/api/print';
 export default {
   name: 'table_list',
   components: {
@@ -440,8 +568,16 @@ export default {
         code: '',
         confirm: 0,
       },
+      writeOffOrderId: '',
       modals2: false,
       addressData: {},
+      scheduleVisible: false,
+      scheduleSaving: false,
+      currentScheduleRow: {},
+      scheduleForm: {
+        expected_start_at: null,
+        expected_deliver_at: null,
+      },
     };
   },
   computed: {
@@ -809,27 +945,100 @@ export default {
     },
     // 核销订单
     bindWrite(row) {
-      let self = this;
+      this.writeOffOrderId = row.order_id;
+      this.writeOffFrom.code = '';
+      this.writeOffFrom.confirm = 1;
+      this.modals2 = true;
+    },
+    // 定制打印：排队中 -> 制作中
+    openSchedule(row) {
+      this.currentScheduleRow = row;
+      const expectedStartAt = Number(row.expected_start_at || 0) * 1000;
+      const expectedDeliverAt = Number(row.expected_deliver_at || 0) * 1000;
+      this.scheduleForm.expected_start_at = expectedStartAt > Date.now() ? expectedStartAt : Date.now() + 3600000;
+      this.scheduleForm.expected_deliver_at =
+        expectedDeliverAt > this.scheduleForm.expected_start_at
+          ? expectedDeliverAt
+          : this.scheduleForm.expected_start_at + 86400000;
+      this.scheduleVisible = true;
+    },
+    saveSchedule() {
+      const expectedStartAt = Math.floor(Number(this.scheduleForm.expected_start_at || 0) / 1000);
+      const expectedDeliverAt = Math.floor(Number(this.scheduleForm.expected_deliver_at || 0) / 1000);
+      if (!expectedStartAt || expectedStartAt <= Date.now() / 1000) {
+        this.$message.warning('预计开始时间必须晚于当前时间');
+        return;
+      }
+      if (!expectedDeliverAt || expectedDeliverAt <= expectedStartAt) {
+        this.$message.warning('预计交付时间必须晚于预计开始时间');
+        return;
+      }
+      this.scheduleSaving = true;
+      printQueueAdjust({
+        order_id: this.currentScheduleRow.id,
+        expected_start_at: expectedStartAt,
+        expected_deliver_at: expectedDeliverAt,
+      })
+        .then(() => {
+          this.$message.success('排期已调整');
+          this.scheduleVisible = false;
+          this.getList();
+          this.$emit('changeGetTabs');
+        })
+        .catch((res) => this.$message.error((res && (res.msg || res.message)) || '排期调整失败'))
+        .finally(() => {
+          this.scheduleSaving = false;
+        });
+    },
+    startPrint(row) {
+      if (!this.isScheduleValid(row)) {
+        this.$message.warning('当前排期冲突，请先调整，且预计交付时间必须晚于预计开始时间');
+        return;
+      }
       this.$msgbox({
         title: '提示',
-        message: '确定要核销该订单吗？',
+        message: `确定开始打印订单 ${row.order_id} 吗？`,
         showCancelButton: true,
         cancelButtonText: '取消',
         confirmButtonText: '确定',
         iconClass: 'el-icon-warning',
         confirmButtonClass: 'btn-custom-cancel',
       })
-        .then(() => {
-          writeUpdate(row.order_id)
-            .then((res) => {
-              self.$message.success(res.msg);
-              self.getList();
-            })
-            .catch((res) => {
-              self.$message.error(res.msg);
-            });
+        .then(() => printQueueStart({ order_id: row.id }))
+        .then((res) => {
+          this.$message.success(res.msg || '已开始打印');
+          this.getList();
+          this.$emit('changeGetTabs');
         })
-        .catch(() => {});
+        .catch((res) => {
+          if (res !== 'cancel' && res !== 'close') this.$message.error((res && (res.msg || res.message)) || '开始打印失败');
+        });
+    },
+    isScheduleValid(row) {
+      const expectedStartAt = Number(row.expected_start_at || 0);
+      const expectedDeliverAt = Number(row.expected_deliver_at || 0);
+      return expectedStartAt > 0 && expectedDeliverAt > expectedStartAt;
+    },
+    // 定制打印：制作中 -> 待取
+    completePrint(row) {
+      this.$msgbox({
+        title: '提示',
+        message: `确定订单 ${row.order_id} 已打印完成吗？`,
+        showCancelButton: true,
+        cancelButtonText: '取消',
+        confirmButtonText: '确定',
+        iconClass: 'el-icon-warning',
+        confirmButtonClass: 'btn-custom-cancel',
+      })
+        .then(() => printQueueComplete({ order_id: row.id }))
+        .then((res) => {
+          this.$message.success(res.msg || '打印完成');
+          this.getList();
+          this.$emit('changeGetTabs');
+        })
+        .catch((res) => {
+          if (res !== 'cancel' && res !== 'close') this.$message.error((res && (res.msg || res.message)) || '打印完成失败');
+        });
     },
     // 订单类型  @on-changeTabs="getChangeTabs"
     getTabs() {
@@ -954,19 +1163,26 @@ export default {
     },
     // 订单核销
     writeOff() {
+      this.writeOffOrderId = '';
       this.modals2 = true;
     },
     // 订单核销
     ok(name) {
       if (!this.writeOffFrom.code) {
-        this.$message.warning('请先验证订单！');
+        this.$message.warning(this.writeOffOrderId ? '请输入取件码！' : '请先验证订单！');
+      } else if (this.writeOffOrderId && !/^\d{6}$/.test(String(this.writeOffFrom.code))) {
+        this.$message.warning('请输入6位数字取件码！');
       } else {
         this.writeOffFrom.confirm = 1;
-        putWrite(this.writeOffFrom)
+        const request = this.writeOffOrderId
+          ? writeUpdate(this.writeOffOrderId, { code: String(this.writeOffFrom.code) })
+          : putWrite(this.writeOffFrom);
+        request
           .then(async (res) => {
             if (res.status === 200) {
               this.$message.success(res.msg);
               this.modals2 = false;
+              this.writeOffOrderId = '';
               this.$refs[name].resetFields();
               this.getList();
             } else {
@@ -980,11 +1196,13 @@ export default {
     },
     del(name) {
       this.modals2 = false;
+      this.writeOffOrderId = '';
       this.writeOffFrom.code = '';
       this.$refs[name].resetFields();
     },
     changeModal() {
       this.writeOffFrom.code = '';
+      this.writeOffOrderId = '';
     },
   },
 };

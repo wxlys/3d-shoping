@@ -1002,8 +1002,12 @@ class StoreOrderRefundServices extends BaseServices
             if ((int)$order['paid'] !== 1 || (int)($order['queue_status'] ?? 0) !== PrintQueueServices::STATUS_WAIT) {
                 throw new ApiException('定制打印订单仅在排队中且开始打印前可申请退款');
             }
-        } elseif ((int)$order['paid'] !== 1 || (int)$order['status'] !== 1) {
-            throw new ApiException('成品或秒杀订单仅在待取状态可申请退款');
+        } else {
+            $isUnfulfilled = in_array((int)($order['status'] ?? -1), [0, 1], true)
+                && empty($order['delivery_type']);
+            if ((int)$order['paid'] !== 1 || !$isUnfulfilled) {
+                throw new ApiException('成品或秒杀订单仅在待发货或待核销状态可申请退款');
+            }
         }
 
         $is_now = $this->dao->getCount([
@@ -1266,15 +1270,19 @@ class StoreOrderRefundServices extends BaseServices
         $total_price = 0;
         $pay_postage = '0';
         foreach ($orderData['cartInfo'] ?? [] as $key => &$cart) {
-            if (!isset($cart['sum_true_price'])) $cart['sum_true_price'] = bcmul((string)$cart['truePrice'], (string)$cart['cart_num'], 2);
-            $cart['vip_sum_truePrice'] = bcmul($cart['vip_truePrice'], $cart['cart_num'] ? $cart['cart_num'] : 1, 2);
+            $cartNum = (int)($cart['cart_num'] ?? 1);
+            if (!isset($cart['sum_true_price'])) {
+                $cart['sum_true_price'] = bcmul((string)($cart['truePrice'] ?? 0), (string)$cartNum, 2);
+            }
+            $cart['vip_sum_truePrice'] = bcmul((string)($cart['vip_truePrice'] ?? 0), (string)$cartNum, 2);
             $vipTruePrice = bcadd((string)$vipTruePrice, (string)$cart['vip_sum_truePrice'], 2);
             if (isset($order['split']) && $order['split']) {
-                $orderData['cartInfo'][$key]['cart_num'] = $cart['surplus_num'];
-                if (!$cart['surplus_num']) unset($orderData['cartInfo'][$key]);
+                $surplusNum = (int)($cart['surplus_num'] ?? 0);
+                $orderData['cartInfo'][$key]['cart_num'] = $surplusNum;
+                if (!$surplusNum) unset($orderData['cartInfo'][$key]);
             }
             $total_price = bcadd($total_price, $cart['sum_true_price'], 2);
-            $pay_postage = bcadd($cart['postage_price'], $pay_postage, 2);
+            $pay_postage = bcadd((string)($cart['postage_price'] ?? 0), $pay_postage, 2);
         }
         $orderData['use_integral'] = $this->getOrderSumPrice($orderData['cartInfo'], 'use_integral', false);
         $orderData['integral_price'] = $this->getOrderSumPrice($orderData['cartInfo'], 'integral_price', false);

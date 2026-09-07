@@ -73,16 +73,17 @@
 				<view class="nav">
 					<view class="navCon acea-row row-between-wrapper" v-if="orderInfo.is_print != 1">
 						<view :class="status.type == 0 || status.type == -9 ? 'on' : ''">{{ $t(`待付款`) }}</view>
-						<view :class="status.type == 1 || status.type == 5 || (orderInfo.is_print == 1 && status.type == 2) ? 'on' : ''">
-							{{ orderInfo.is_print == 1 ? $t(`待取件`) : orderInfo.shipping_type == 1 ? $t(`待发货`) : $t(`待核销`) }}
+						<view :class="status.type == 1 || status.type == 5 ? 'on' : ''" v-if="orderInfo.shipping_type == 1">
+							{{ $t(`待发货`) }}
 						</view>
 						<view :class="status.type == 2 ? 'on' : ''" v-if="orderInfo.shipping_type == 1">{{ $t(`待收货`) }}</view>
+						<view :class="status.type == 2 ? 'on' : ''" v-if="orderInfo.shipping_type == 2">{{ $t(`待收货`) }}</view>
 						<view :class="status.type == 3 ? 'on' : ''">{{ $t(`待评价`) }}</view>
 						<view :class="status.type == 4 ? 'on' : ''">{{ $t(`已完成`) }}</view>
 					</view>
 					<view class="navCon acea-row row-between-wrapper" v-else>
 						<view :class="status.type == 0 || status.type == -9 ? 'on' : ''">{{ $t(`待付款`) }}</view>
-						<view :class="status.type == 1 || status.type == 2 || status.type == 5 ? 'on' : ''">{{ $t(`待取件`) }}</view>
+						<view :class="status.type == 1 || status.type == 2 || status.type == 5 ? 'on' : ''">{{ $t(`待收货`) }}</view>
 						<view :class="status.type == 3 ? 'on' : ''">{{ $t(`待评价`) }}</view>
 						<view :class="status.type == 4 ? 'on' : ''">
 							{{ orderInfo.queue_status == 4 ? $t(`已取消`) : $t(`已完成`) }}
@@ -93,6 +94,15 @@
 						<view class="line" :class="status.type > 0 ? 'bg-color' : ''"></view>
 						<view class="iconfont" :class="(status.type == 1 || status.type == 2 || status.type == 5 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 1 ? 'font-num' : '')"></view>
 						<view class="line" :class="status.type > 1 && status.type != 5 ? 'bg-color' : ''"></view>
+						<view class="iconfont" :class="(status.type == 3 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 3 && status.type != 5 ? 'font-num' : '')"></view>
+						<view class="line" :class="status.type > 3 && status.type != 5 ? 'bg-color' : ''"></view>
+						<view class="iconfont" :class="(status.type == 4 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 4 && status.type != 5 ? 'font-num' : '')"></view>
+					</view>
+					<view class="progress acea-row row-between-wrapper" v-else-if="orderInfo.shipping_type == 2">
+						<view class="iconfont" :class="(status.type == 0 || status.type == -9 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 0 ? 'font-num' : '')"></view>
+						<view class="line" :class="status.type > 0 ? 'bg-color' : ''"></view>
+						<view class="iconfont" :class="(status.type == 2 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 2 ? 'font-num' : '')"></view>
+						<view class="line" :class="status.type > 2 && status.type != 5 ? 'bg-color' : ''"></view>
 						<view class="iconfont" :class="(status.type == 3 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 3 && status.type != 5 ? 'font-num' : '')"></view>
 						<view class="line" :class="status.type > 3 && status.type != 5 ? 'bg-color' : ''"></view>
 						<view class="iconfont" :class="(status.type == 4 ? 'icon-webicon318' : 'icon-yuandianxiao') + ' ' + (status.type >= 4 && status.type != 5 ? 'font-num' : '')"></view>
@@ -464,7 +474,7 @@
 					>
 						{{ $t(`查看物流`) }}
 					</navigator>
-					<view class="bnt bg-color" v-if="status.class_status == 3 && !split.length" @click="confirmOrder()">
+					<view class="bnt bg-color" v-if="status.class_status == 3 && orderInfo.shipping_type != 2 && orderInfo.is_print != 1 && !split.length" @click="confirmOrder()">
 						{{ $t(`确认收货`) }}
 					</view>
 					<view class="bnt bg-color" v-if="orderInfo.paid == 1 && isReturn != 1" @tap="goOrderConfirm">{{ $t(`再次购买`) }}</view>

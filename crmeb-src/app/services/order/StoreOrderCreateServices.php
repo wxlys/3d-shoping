@@ -114,6 +114,18 @@ class StoreOrderCreateServices extends BaseServices
     }
 
     /**
+     * 门店自提订单生成6位数字取件码
+     * @return string
+     */
+    public function getPickupCode(): string
+    {
+        do {
+            $code = str_pad((string)mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        } while ($this->dao->count(['verify_code' => $code]));
+        return $code;
+    }
+
+    /**
      * 创建订单
      * @param $uid
      * @param $key
@@ -160,6 +172,11 @@ class StoreOrderCreateServices extends BaseServices
         $cartGroup = $storeOrderServices->getCacheOrderInfo($uid, $key);
         if (!$cartGroup) {
             throw new ApiException('订单已过期,请刷新当前页面');
+        }
+        $shippingType = (int)$shippingType;
+        $shippingTypes = $storeOrderServices->getCartShippingTypes($cartGroup['cartInfo']);
+        if (!in_array($shippingType, $shippingTypes, true)) {
+            throw new ApiException('所选商品不支持当前配送方式');
         }
         $virtual_type = 0;
 
@@ -208,17 +225,27 @@ class StoreOrderCreateServices extends BaseServices
         $cartIds = [];
         $totalNum = 0;
         $gainIntegral = 0;
+        // 活动类型只能由服务端缓存的购物车快照决定，不能信任客户端提交的 seckillId。
+        // “单独购买”生成 type=0 的普通购物车，即使客户端残留秒杀参数也必须按普通订单处理。
+        $seckillId = 0;
         foreach ($cartInfo as $cart) {
             $cartIds[] = $cart['id'];
             $totalNum += $cart['cart_num'];
-            if (!$seckillId) $seckillId = $cart['seckill_id'];
+            if ((int)($cart['type'] ?? 0) === 1) {
+                $cartSeckillId = (int)($cart['seckill_id'] ?? 0);
+                if (!$cartSeckillId) {
+                    throw new ApiException('秒杀购物车数据异常，请重新下单');
+                }
+                if ($seckillId && $seckillId !== $cartSeckillId) {
+                    throw new ApiException('不同秒杀活动商品不能合并下单');
+                }
+                $seckillId = $cartSeckillId;
+            }
         }
         $advance_id = 0;
         $deduction = (int)$seckillId > 0;
         $gainIntegral = 0;
         //$shipping_type = 1 快递发货 $shipping_type = 2 门店自提
-        $storeSelfMention = sys_config('store_self_mention') ?? 0;
-        if (!$storeSelfMention) $shippingType = 1;
         if ($is_gift == 1) $shippingType = 0;
 
         $orderInfo = [
@@ -266,7 +293,7 @@ class StoreOrderCreateServices extends BaseServices
         ];
 
         if ($shippingType == 2) {
-            $orderInfo['verify_code'] = $this->getStoreCode();
+            $orderInfo['verify_code'] = $this->getPickupCode();
             /** @var SystemStoreServices $storeServices */
             $storeServices = app()->make(SystemStoreServices::class);
             $orderInfo['store_id'] = $storeServices->getStoreDispose($storeId, 'id');
@@ -381,9 +408,10 @@ class StoreOrderCreateServices extends BaseServices
         $advanceServices = app()->make(StoreAdvanceServices::class);
         try {
             foreach ($cartInfo as $cart) {
+                $cartSeckillId = (int)($cart['type'] ?? 0) === 1 ? (int)($cart['seckill_id'] ?? 0) : 0;
                 //减库存加销量
                 if ($combinationId) $res5 = $res5 && $pinkServices->decCombinationStock((int)$cart['cart_num'], $combinationId, isset($cart['productInfo']['attrInfo']) ? $cart['productInfo']['attrInfo']['unique'] : '');
-                else if ($seckillId) $res5 = $res5 && $seckillServices->decSeckillStock((int)$cart['cart_num'], $seckillId, isset($cart['productInfo']['attrInfo']) ? $cart['productInfo']['attrInfo']['unique'] : '');
+                else if ($cartSeckillId) $res5 = $res5 && $seckillServices->decSeckillStock((int)$cart['cart_num'], $cartSeckillId, isset($cart['productInfo']['attrInfo']) ? $cart['productInfo']['attrInfo']['unique'] : '');
                 else if ($bargainId) $res5 = $res5 && $bargainServices->decBargainStock((int)$cart['cart_num'], $bargainId, isset($cart['productInfo']['attrInfo']) ? $cart['productInfo']['attrInfo']['unique'] : '');
                 else if ($advanceId) $res5 = $res5 && $advanceServices->decAdvanceStock((int)$cart['cart_num'], $advanceId, isset($cart['productInfo']['attrInfo']) ? $cart['productInfo']['attrInfo']['unique'] : '');
                 else $res5 = $res5 && $services->decProductStock((int)$cart['cart_num'], (int)$cart['productInfo']['id'], isset($cart['productInfo']['attrInfo']) ? $cart['productInfo']['attrInfo']['unique'] : '');

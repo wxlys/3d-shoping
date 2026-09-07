@@ -135,7 +135,13 @@ class StoreOrderServices extends BaseServices
     public function getOrderApiList(array $where, array $field = ['*'], array $with = [])
     {
         [$page, $limit] = $this->getPageValue();
-        $data = $this->dao->getOrderList($where, $field, $page, $limit, $with);
+        $userStatus = isset($where['status']) ? (int)$where['status'] : -1;
+        if (in_array($userStatus, [1, 2], true)) {
+            unset($where['status']);
+            $data = $this->dao->getUserOrderApiList($where, $userStatus, $field, $page, $limit, $with);
+        } else {
+            $data = $this->dao->getOrderList($where, $field, $page, $limit, $with);
+        }
         foreach ($data as &$item) {
             $item = $this->tidyOrder($item, true);
             foreach ($item['cartInfo'] ?: [] as $key => $product) {
@@ -174,9 +180,11 @@ class StoreOrderServices extends BaseServices
         if ($uid) {
             $countWhere['uid'] = $uid;
         }
-        $data['unpaid_count'] = (string)$this->dao->count(['status' => 0] + $countWhere);
-        $data['unshipped_count'] = (string)$this->dao->count(['status' => 1] + $countWhere + ['pid' => 0]);
-        $data['received_count'] = (string)$this->dao->count(['status' => 2] + $countWhere + ['pid' => 0]);
+        $data['unpaid_count'] = (string)$this->dao->count(['paid' => 0, 'status' => 0, 'refund_status' => 0, 'is_cancel' => 0] + $countWhere);
+        $userOrderWhere = $countWhere + ['pid' => 0];
+        // 数量统计直接复用用户端列表分类，避免数据库 status 与用户实际履约阶段不一致。
+        $data['unshipped_count'] = (string)$this->dao->getUserOrderApiCount($userOrderWhere, 1);
+        $data['received_count'] = (string)$this->dao->getUserOrderApiCount($userOrderWhere, 2);
         $data['evaluated_count'] = (string)$this->dao->count(['status' => 3] + $countWhere + ['pid' => 0]);
         $data['complete_count'] = (string)$this->dao->count(['status' => 4] + $countWhere + ['pid' => 0]);
 
@@ -368,10 +376,10 @@ class StoreOrderServices extends BaseServices
                         }
                         $status['_class'] = 'state-nfh';
                     } elseif ($order['shipping_type'] === 2) {
-                        $status['_type'] = 1;
-                        $status['_title'] = '待核销';
-                        $status['_msg'] = '待核销,请到核销点进行核销';
-                        $status['_class'] = 'state-nfh';
+                        $status['_type'] = 2;
+                        $status['_title'] = '待收货';
+                        $status['_msg'] = '商品已备好，请凭取件码到店取货';
+                        $status['_class'] = 'state-ysh';
                     } else {
                         $status['_type'] = 1;
                         $status['_title'] = '待领取';
@@ -401,11 +409,18 @@ class StoreOrderServices extends BaseServices
                     $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_split'], 'change_time')) . '服务商已拆分多个包裹发货';
                     $status['_class'] = 'state-ysh';
                 } else {
-                    // 没有配送类型就没有真实发货，不能按虚拟发货处理。
-                    $status['_type'] = 1;
-                    $status['_title'] = (int)$order['shipping_type'] === 2 ? '待核销' : '待发货';
-                    $status['_msg'] = (int)$order['shipping_type'] === 2 ? '待核销,请到核销点进行核销' : '商家未发货,请耐心等待';
-                    $status['_class'] = 'state-nfh';
+                    if ((int)$order['shipping_type'] === 2) {
+                        $status['_type'] = 2;
+                        $status['_title'] = '待收货';
+                        $status['_msg'] = '商品已备好，请凭取件码到店取货';
+                        $status['_class'] = 'state-ysh';
+                    } else {
+                        // 没有配送类型就没有真实发货，不能按虚拟发货处理。
+                        $status['_type'] = 1;
+                        $status['_title'] = '待发货';
+                        $status['_msg'] = '商家未发货,请耐心等待';
+                        $status['_class'] = 'state-nfh';
+                    }
                 }
             } else if ($order['status'] == 2) {
                 $status['_type'] = 3;
@@ -437,7 +452,7 @@ class StoreOrderServices extends BaseServices
         $canShowPickupCode = (int)($order['is_print'] ?? 0) === 1
             || (int)($order['shipping_type'] ?? 0) === 2
             || ($order['delivery_type'] ?? '') === 'send';
-        $order['pickup_code'] = ((int)($order['status'] ?? 0) === 1 && !empty($order['verify_code']) && $canShowPickupCode)
+        $order['pickup_code'] = ((int)($order['status'] ?? 0) < 2 && !empty($order['verify_code']) && $canShowPickupCode)
             ? $order['verify_code'] : '';
         // 定制打印订单使用独立的排单状态，避免支付后仍显示成普通商品的“待核销”。
         // 退款状态优先于排单状态，避免退款完成后被“排单已取消”覆盖成退款中。
@@ -460,7 +475,7 @@ class StoreOrderServices extends BaseServices
             } elseif ($order['queue_status'] == 3 && (int)$order['status'] < 2) {
                 $order['_status'] = [
                     '_type' => 2,
-                    '_title' => '待取件',
+                    '_title' => '待收货',
                     '_msg' => '打印已完成，请凭取件码到店取件',
                     '_class' => 'state-ysh',
                 ];
@@ -593,10 +608,22 @@ class StoreOrderServices extends BaseServices
         $services = app()->make(StoreOrderCartInfoServices::class);
         foreach ($data as &$item) {
             $item['_info'] = $services->getOrderCartInfo((int)$item['id']);
+            $item['is_print'] = (int)($item['is_print'] ?? 0);
+            $item['queue_status'] = (int)($item['queue_status'] ?? 0);
+            $item['expected_start_at'] = (int)($item['expected_start_at'] ?? 0);
+            $item['expected_deliver_at'] = (int)($item['expected_deliver_at'] ?? 0);
+            $item['expected_start_at_text'] = $item['expected_start_at'] ? date('Y-m-d H:i:s', $item['expected_start_at']) : '';
+            $item['expected_deliver_at_text'] = $item['expected_deliver_at'] ? date('Y-m-d H:i:s', $item['expected_deliver_at']) : '';
+            $item['schedule_conflict'] = $item['is_print'] === 1
+                && $item['queue_status'] === 1
+                && ($item['expected_start_at'] <= 0 || $item['expected_deliver_at'] <= $item['expected_start_at']);
             $item['add_time'] = date('Y-m-d H:i:s', $item['add_time']);
             $item['_refund_time'] = isset($item['refund_reason_time']) && $item['refund_reason_time'] ? date('Y-m-d H:i:s', $item['refund_reason_time']) : '';
             $item['_pay_time'] = isset($item['pay_time']) && $item['pay_time'] ? date('Y-m-d H:i:s', $item['pay_time']) : '';
-            if (($item['pink_id'] || $item['combination_id']) && isset($item['pinkStatus'])) {
+            if ($item['is_print'] === 1) {
+                $item['pink_name'] = '[定制订单]';
+                $item['color'] = '#3875EA';
+            } elseif (($item['pink_id'] || $item['combination_id']) && isset($item['pinkStatus'])) {
                 switch ($item['pinkStatus']) {
                     case 1:
                         $item['pink_name'] = '[拼团订单]正在进行中';
@@ -738,7 +765,10 @@ HTML;
                 $item['_status'] = 11;//拆单退款 未发货
             }
             // 定制打印订单使用排单状态展示实际履约阶段，不再显示普通核销订单文案。
-            if ((int)($item['is_print'] ?? 0) === 1 && $item['paid'] == 1 && $item['refund_status'] == 0) {
+            if ($item['is_print'] === 1 && $item['paid'] == 0 && $item['refund_status'] == 0) {
+                $status_name['status_name'] = $item['is_cancel'] == 0 ? '定制待支付' : '已取消';
+                $item['status_name'] = $status_name;
+            } elseif ($item['is_print'] === 1 && $item['paid'] == 1 && $item['refund_status'] == 0) {
                 if ((int)$item['queue_status'] === 1) {
                     $status_name['status_name'] = '排队中';
                     $item['_status'] = 2;
@@ -938,6 +968,10 @@ HTML;
         $where['pid'] = 0;
         $data['un_paid'] = $this->dao->count($where + ['status' => 0], false);
         $data['un_send'] = $this->dao->count($where + ['status' => 1, 'shipping_type' => 1], false);
+        $data['print_unpaid'] = $this->dao->count($where + ['status' => 10], false);
+        $data['print_wait'] = $this->dao->count($where + ['status' => 11], false);
+        $data['print_printing'] = $this->dao->count($where + ['status' => 12], false);
+        $data['print_pickup'] = $this->dao->count($where + ['status' => 13], false);
         return $data;
     }
 
@@ -1864,6 +1898,7 @@ HTML;
         /** @var StoreCartServices $cartServices */
         $cartServices = app()->make(StoreCartServices::class);
         $cartGroup = $cartServices->getUserProductCartListV1($user['uid'], $cartId, $new, $addr, $shipping_type, $is_gift);
+        $shippingTypes = $this->getCartShippingTypes($cartGroup['cartInfo']);
         $data = [];
         $data['storeFreePostage'] = $storeFreePostage = floatval(sys_config('store_free_postage')) ?: 0;//满额包邮金额
         $validCartInfo = $cartGroup['valid'];
@@ -1904,11 +1939,12 @@ HTML;
         $data['yue_pay_status'] = 2;
         $data['pay_weixin_open'] = sys_config('pay_weixin_open', '0') != '0';//微信支付 1 开启 0 关闭
         $data['friend_pay_status'] = 0;
-        $data['store_self_mention'] = (int)sys_config('store_self_mention') ?? 0;//门店自提是否开启
         /** @var SystemStoreServices $systemStoreServices */
         $systemStoreServices = app()->make(SystemStoreServices::class);
         $store_count = $systemStoreServices->count(['type' => 0]);
-        $data['store_self_mention'] = $data['store_self_mention'] && $store_count;
+        // 商品物流配置是订单可选配送方式的唯一依据；门店数量只决定自提入口是否可用。
+        $data['store_self_mention'] = (int)(in_array(2, $shippingTypes, true) && $store_count > 0);
+        $data['shipping_types'] = $shippingTypes;
 
         $data['ali_pay_status'] = sys_config('ali_pay_status', '0') != '0';//支付包支付 1 开启 0 关闭
         $data['system_store'] = [];//门店信息
@@ -2664,11 +2700,8 @@ HTML;
         if (!$order) throw new ApiException('商品不存在');
         $order = $order->toArray();
         $splitNum = [];
-        //是否开启门店自提
-        $store_self_mention = sys_config('store_self_mention');
-        //关闭门店自提后 订单隐藏门店信息
-        // 定制打印固定为到店自取，不受普通商品“门店自提开关”影响。
-        if ($store_self_mention == 0 && (int)($order['is_print'] ?? 0) !== 1) $order['shipping_type'] = 1;
+        // 订单详情必须保留下单时的真实配送方式；门店自提开关只影响新订单入口，
+        // 不能把已有自提订单改写成配送订单，否则用户无法看到取件码。
         $canShowVerifyCode = (int)($order['shipping_type'] ?? 0) === 2
             || (int)($order['delivery_uid'] ?? 0) !== 0
             || (int)($order['is_print'] ?? 0) === 1;
@@ -2816,8 +2849,10 @@ HTML;
                 && (int)($orderData['queue_status'] ?? 0) === 1
                 && (int)$orderData['refund_status'] === 0;
         } else {
+            $isUnfulfilled = in_array((int)($orderData['status'] ?? -1), [0, 1], true)
+                && empty($orderData['delivery_type']);
             $orderData['is_apply_refund'] = (int)$orderData['paid'] === 1
-                && (int)$orderData['status'] === 0
+                && $isUnfulfilled
                 && (int)$orderData['refund_status'] === 0;
         }
         $orderData['help_info'] = [
@@ -2928,19 +2963,35 @@ HTML;
         if (!$cartInfo) {
             throw new ApiException('数据不存在');
         }
-        $arr = [];
-        foreach ($cartInfo as $item) {
-            $arr[] = $item['productInfo']['logistics'];
-        }
-        $res = array_unique(explode(',', implode(',', $arr)));
-        if (count($res) == 2) {
+        $shippingTypes = $this->getCartShippingTypes($cartInfo);
+        if (count($shippingTypes) === 2) {
             return ['type' => 0];
-        } else {
-            if ($res[0] == 2 && sys_config('store_self_mention') == 0) {
-                return ['type' => 1];
-            }
-            return ['type' => (int)$res[0]];
         }
+        return ['type' => $shippingTypes[0]];
+    }
+
+    /**
+     * 获取购物车内所有商品共同支持的物流方式。
+     * 1：快递配送；2：到店自提。旧数据未配置物流时兼容为两者均支持。
+     */
+    public function getCartShippingTypes(array $cartInfo): array
+    {
+        $shippingTypes = [1, 2];
+        foreach ($cartInfo as $item) {
+            $logistics = (string)($item['productInfo']['logistics'] ?? '');
+            $productTypes = array_values(array_unique(array_filter(array_map('intval', explode(',', $logistics)), function ($type) {
+                return in_array($type, [1, 2], true);
+            })));
+            if (!$productTypes) {
+                $productTypes = [1, 2];
+            }
+            $shippingTypes = array_values(array_intersect($shippingTypes, $productTypes));
+        }
+        if (!$shippingTypes) {
+            throw new ApiException('所选商品支持的物流方式不一致，请分别下单');
+        }
+        sort($shippingTypes);
+        return $shippingTypes;
     }
 
     /**
@@ -3269,7 +3320,7 @@ HTML;
         if ($shipping_type == 2 && $store_id) {
             $store_id = app()->make(SystemStoreServices::class)->getStoreDispose($store_id, 'id');
             if (!$store_id) throw new ApiException('门店选择错误');
-            $verify_code = app()->make(StoreOrderCreateServices::class)->getStoreCode();
+            $verify_code = app()->make(StoreOrderCreateServices::class)->getPickupCode();
         }
         $orderData = [
             'gift_uid' => $uid,

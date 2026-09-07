@@ -179,7 +179,7 @@
 						{{$t(`￥`)}}{{allPrice || 0}}
 					</view>
 				</view>
-				v-if="priceGroup.storePostage > 0">
+				<view class='item acea-row row-between-wrapper' v-if="priceGroup.storePostage > 0">
 					<view>{{$t(`配送运费`)}}：</view>
 					<view class='money'>
 						{{$t(`￥`)}}{{parseFloat(priceGroup.storePostage).toFixed(2)}}
@@ -231,10 +231,6 @@
 	import {
 		storeListApi
 	} from '@/api/store.js';
-	import {
-		CACHE_LONGITUDE,
-		CACHE_LATITUDE
-	} from '@/config/cache.js';
 	import addressWindow from '@/components/addressWindow';
 	import orderGoods from '@/components/orderGoods';
 	import home from '@/components/home';
@@ -420,7 +416,7 @@
 				uni.$off('handClick');
 			})
 
-			// 如果当前是门店自提模式，重新获取定位以确保门店列表准确
+			// 到店自提不依赖用户定位，只读取商家配置的自提点。
 			if (this.shippingType == 1 && !this.system_store.name) {
 				this.refreshLocationAndStores();
 			}
@@ -428,39 +424,10 @@
 		},
 		methods: {
 			/**
-			 * 刷新定位并更新门店列表
+			 * 更新门店列表
 			 */
 			refreshLocationAndStores() {
-				let that = this;
-				// #ifdef H5
-				if (that.$wechat.isWeixin()) {
-					that.$wechat.location().then(res => {
-						uni.setStorageSync('user_latitude', res.latitude);
-						uni.setStorageSync('user_longitude', res.longitude);
-						this.getList()
-					}).catch(err => {
-						// 如果获取定位失败，仍然尝试用缓存的定位获取门店列表
-						this.getList()
-					})
-				} else {
-					// #endif
-					uni.getLocation({
-						type: 'wgs84',
-						success: (res) => {
-							uni.setStorageSync('user_latitude', res.latitude);
-							uni.setStorageSync('user_longitude', res.longitude);
-						},
-						fail: (err) => {
-							// 获取定位失败时的处理，仍然使用缓存定位
-							console.log('获取定位失败:', err);
-						},
-						complete: () => {
-							this.getList()
-						}
-					})
-					// #ifdef H5
-				}
-				// #endif
+				this.getList();
 			},
 			checkShipping() {
 				let that = this;
@@ -485,7 +452,6 @@
 						} else if (res.data.type == 2) {
 							that.is_shipping = false;
 							that.shippingType = 1;
-							this.addressType(1)
 							this.getConfirm();
 							this.getList();
 						}
@@ -595,11 +561,7 @@
 			 * 获取门店列表数据
 			 */
 			getList: function() {
-				let longitude = uni.getStorageSync("user_longitude") || ''; //经度
-				let latitude = uni.getStorageSync("user_latitude") || ''; //纬度
 				let data = {
-					latitude: latitude, //纬度
-					longitude: longitude, //经度
 					page: 1,
 					limit: 10
 				}
@@ -647,34 +609,10 @@
 			},
 			addressType(e) {
 				let index = e;
-				let that = this;
 				if (this.shippingType == parseInt(index)) return
 				this.shippingType = parseInt(index);
 				if (index == 1) {
-					// #ifdef H5
-					if (that.$wechat.isWeixin()) {
-						that.$wechat.location().then(res => {
-							uni.setStorageSync('user_latitude', res.latitude);
-							uni.setStorageSync('user_longitude', res.longitude);
-							this.getList()
-						}).catch(err => {
-							this.getList()
-						})
-					} else {
-						// #endif	
-						uni.getLocation({
-							type: 'wgs84',
-							success: (res) => {
-								uni.setStorageSync('user_latitude', res.latitude);
-								uni.setStorageSync('user_longitude', res.longitude);
-							},
-							complete: () => {
-								this.getList()
-							}
-						})
-						// #ifdef H5	
-					}
-					// #endif
+					this.getList();
 				};
 				this.$nextTick(e => {
 					this.getConfirm();
@@ -870,7 +808,7 @@
 						});
 					}
 					if (that.storeList.length == 0) return that.$util.Tips({
-						title: that.$t(`暂无门店,请选择其他方式`)
+						title: that.$t(that.is_shipping ? `暂无可用自提点，请选择快递配送` : `暂无可用自提点，请联系商家配置自提点`)
 					});
 				}
 				for (var i = 0; i < that.confirm.length; i++) {

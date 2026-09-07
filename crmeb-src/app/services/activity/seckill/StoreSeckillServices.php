@@ -453,9 +453,14 @@ class StoreSeckillServices extends BaseServices
         $storeInfo = $this->dao->getOne(['id' => $id], '*', ['description', 'product']);
         if (!$storeInfo) {
             throw new ApiException('商品不存在');
-        } else {
+        }
+        if (is_object($storeInfo)) {
             $storeInfo = $storeInfo->toArray();
         }
+        if (!is_array($storeInfo)) {
+            throw new ApiException('秒杀商品数据异常');
+        }
+        $storeInfo = $this->inheritProductLogistics($storeInfo);
         $siteUrl = sys_config('site_url');
         $storeInfo['image'] = set_file_url($storeInfo['image'], $siteUrl);
         $storeInfo['image_base'] = set_file_url($storeInfo['image'], $siteUrl);
@@ -601,12 +606,22 @@ class StoreSeckillServices extends BaseServices
         }
         //检查商品活动状态
         $StoreSeckillinfo = $this->getSeckillCount($seckillId, '*,title as store_name');
+        if (!$StoreSeckillinfo) {
+            throw new ApiException('活动已结束');
+        }
+        if (is_object($StoreSeckillinfo)) {
+            $StoreSeckillinfo = $StoreSeckillinfo->toArray();
+        }
+        if (!is_array($StoreSeckillinfo)) {
+            throw new ApiException('秒杀活动数据异常');
+        }
+        $StoreSeckillinfo = $this->inheritProductLogistics($StoreSeckillinfo);
         if ($StoreSeckillinfo['once_num'] < $cartNum) {
             throw new ApiException('每个订单限购{:num}件', ['num' => $StoreSeckillinfo['once_num']]);
         }
         /** @var StoreOrderServices $orderServices */
         $orderServices = app()->make(StoreOrderServices::class);
-        $userBuyCount = $orderServices->getBuyCount($uid, 'seckill_id', $seckillId);
+        $userBuyCount = $orderServices->getSuccessfulBuyCount($uid, 'seckill_id', $seckillId);
         if ($StoreSeckillinfo['num'] < ($userBuyCount + $cartNum)) {
             throw new ApiException('每人总共限购{:num}件', ['num' => $StoreSeckillinfo['num']]);
         }
@@ -621,6 +636,35 @@ class StoreSeckillServices extends BaseServices
             throw new ApiException('该商品库存不足');
         }
         return [$attrInfo, $unique, $StoreSeckillinfo];
+    }
+
+    /**
+     * 秒杀商品实时继承主商品的物流配置，避免创建活动后的快照与商品管理脱节。
+     */
+    private function inheritProductLogistics(array $seckillInfo): array
+    {
+        $productId = (int)($seckillInfo['product_id'] ?? 0);
+        if (!$productId) {
+            return $seckillInfo;
+        }
+        /** @var StoreProductServices $productServices */
+        $productServices = app()->make(StoreProductServices::class);
+        $product = $productServices->get($productId, ['logistics', 'freight', 'postage', 'temp_id', 'is_postage', 'custom_form', 'virtual_type']);
+        if (!$product) {
+            return $seckillInfo;
+        }
+        if (is_object($product)) {
+            $product = $product->toArray();
+        }
+        if (!is_array($product)) {
+            return $seckillInfo;
+        }
+        foreach (['logistics', 'freight', 'postage', 'temp_id', 'is_postage', 'custom_form', 'virtual_type'] as $field) {
+            if (array_key_exists($field, $product)) {
+                $seckillInfo[$field] = $product[$field];
+            }
+        }
+        return $seckillInfo;
     }
 
     /**

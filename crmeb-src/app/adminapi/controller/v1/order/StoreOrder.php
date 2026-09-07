@@ -193,14 +193,25 @@ class StoreOrder extends AuthController
      */
     public function write_update(StoreOrderWriteOffServices $services, $order_id)
     {
+        [$code] = $this->request->getMore([['code', '']], true);
+        $code = trim((string)$code);
         $orderInfo = $this->services->getOne(['order_id' => $order_id, 'is_del' => 0]);
+        if (!$orderInfo) {
+            return app('json')->fail('核销订单未查到');
+        }
         if ($orderInfo->shipping_type != 2 && $orderInfo->delivery_type != 'send') {
             return app('json')->fail('核销订单未查到');
         } else {
             if (!$orderInfo->verify_code) {
                 return app('json')->fail('参数错误');
             }
-            $orderInfo = $services->writeOffOrder($orderInfo->verify_code, 1);
+            if ($orderInfo->shipping_type == 2 && !preg_match('/^\d{6}$/', $code)) {
+                return app('json')->fail('请输入6位数字取件码');
+            }
+            if ($code === '' || !hash_equals((string)$orderInfo->verify_code, $code)) {
+                return app('json')->fail('取件码不正确');
+            }
+            $orderInfo = $services->writeOffOrder($code, 1);
             if ($orderInfo) {
                 return app('json')->success('验证成功');
             } else {

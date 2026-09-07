@@ -117,6 +117,13 @@ class PrintQueueServices
                 (string)$device['business_start'],
                 (string)$device['business_end']
             );
+            // 队列推移不能制造“预计开始晚于预计交付”的无效排期。
+            // 交付时间是报价承诺，不在此处自动顺延；发生冲突时保留已有有效开始时间，
+            // 否则清空开始时间，交由管理员在订单管理中显式调整。
+            if ($start >= $expectedDeliverAt) {
+                $currentStart = (int)($order['expected_start_at'] ?? 0) ?: (int)($item['expected_start_at'] ?? 0);
+                $start = $currentStart > $now && $currentStart < $expectedDeliverAt ? $currentStart : 0;
+            }
             Db::name('print_queue')->where('id', (int)$item['id'])->update([
                 'expected_start_at' => $start,
                 'expected_end_at' => $expectedDeliverAt,
@@ -126,7 +133,7 @@ class PrintQueueServices
                 'expected_start_at' => $start,
                 'expected_deliver_at' => $expectedDeliverAt,
             ]);
-            $base = max($start, $expectedDeliverAt);
+            $base = max($base, $start, $expectedDeliverAt);
         }
     }
 
@@ -144,6 +151,11 @@ class PrintQueueServices
         $order = Db::name('store_order')->where('id', $orderId)->find();
         if (!$order || (int)$order['paid'] !== 1 || (int)$order['is_print'] !== 1
             || (int)$order['queue_status'] !== self::STATUS_WAIT || (int)$order['refund_status'] !== 0) {
+            return false;
+        }
+        $expectedStartAt = (int)($order['expected_start_at'] ?? 0) ?: (int)($queue['expected_start_at'] ?? 0);
+        $expectedDeliverAt = $this->getManualExpectedDeliverAt($order);
+        if ($expectedStartAt <= 0 || $expectedDeliverAt <= $expectedStartAt) {
             return false;
         }
         Db::name('print_queue')->where('id', (int)$queue['id'])->update([
@@ -297,7 +309,7 @@ class PrintQueueServices
     /**
      * 自动完成：收货后待评价满 N 天仍未评价则自动完成。
      *
-     * 定制订单的用户确认收货和后台取件码核销都会先进入 status=2（待评价），
+     * 定制订单经后台取件码核销后进入 status=2（待评价），
      * 收货时间以订单状态表中的 take_delivery 记录为准，不能使用 pickup_at，
      * 因为 pickup_at 代表打印完成进入待取，而不是用户实际收货时间。
      *

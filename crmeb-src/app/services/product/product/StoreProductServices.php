@@ -215,10 +215,9 @@ class StoreProductServices extends BaseServices
     public function setShow(array $ids, int $is_show)
     {
         if (empty($ids)) throw new AdminException('参数错误');
-//        if ($is_show == 0) {
-//            //下架检测是否有参与活动商品
-//            $this->checkActivity($ids);
-//        }
+        if ($is_show === 0) {
+            $this->checkActiveSeckill($ids);
+        }
         /** @var StoreCartServices $cartService */
         $cartService = app()->make(StoreCartServices::class);
         foreach ($ids as $id) {
@@ -229,6 +228,27 @@ class StoreProductServices extends BaseServices
         $storeProductCateServices = app()->make(StoreProductCateServices::class);
         $storeProductCateServices->batchUpdate($ids, ['status' => $is_show], 'product_id');
         return true;
+    }
+
+    /**
+     * 正在进行秒杀的商品必须先取消秒杀，才允许下架。
+     * 仅检查 status=1 且处于当前活动时间范围内的秒杀记录，未开始或已结束的活动不影响下架。
+     *
+     * @param array $ids
+     * @return void
+     */
+    public function checkActiveSeckill(array $ids): void
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (!$ids) {
+            return;
+        }
+        /** @var StoreSeckillServices $storeSeckillService */
+        $storeSeckillService = app()->make(StoreSeckillServices::class);
+        $activeSeckill = $storeSeckillService->getSeckillIdsArray($ids, ['id', 'product_id']);
+        if ($activeSeckill) {
+            throw new AdminException('商品正在秒杀活动中，请先取消秒杀活动后再下架');
+        }
     }
 
     /**
@@ -601,6 +621,9 @@ class StoreProductServices extends BaseServices
      */
     public function save(int $id, array $data)
     {
+        if ($id && (int)($data['is_show'] ?? 1) === 0) {
+            $this->checkActiveSeckill([$id]);
+        }
         // 定制打印是独立询价服务，不属于商品；后台新增、编辑商品始终保存为成品。
         $data['product_type'] = 0;
         // 业务收敛：商品只允许实体成品，旧商城营销字段统一归零。

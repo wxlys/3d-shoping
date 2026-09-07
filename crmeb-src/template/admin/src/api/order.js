@@ -394,10 +394,11 @@ export function storeOrderApi(data) {
 /**
  * @description 核销单个订单
  */
-export function writeUpdate(order_id) {
+export function writeUpdate(order_id, data) {
   return request({
     url: `order/write_update/${order_id}`,
     method: 'put',
+    data,
   });
 }
 

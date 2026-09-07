@@ -256,9 +256,14 @@ class StoreCartServices extends BaseServices
             $info['product_id'] = $product_id;
             $info['product_attr_unique'] = $product_attr_unique;
             $info['cart_num'] = $cart_num;
-            $info['productInfo'] = $productInfo ? $productInfo->toArray() : [];
-            $info['productInfo']['attrInfo'] = $attrInfo->toArray();
-            $info['attrInfo'] = $attrInfo->toArray();
+            $productInfoData = is_object($productInfo) ? $productInfo->toArray() : (is_array($productInfo) ? $productInfo : []);
+            $attrInfoData = is_object($attrInfo) ? $attrInfo->toArray() : (is_array($attrInfo) ? $attrInfo : []);
+            if (!$productInfoData || !$attrInfoData) {
+                throw new ApiException('商品数据异常，请刷新后重试');
+            }
+            $info['productInfo'] = $productInfoData;
+            $info['productInfo']['attrInfo'] = $attrInfoData;
+            $info['attrInfo'] = $attrInfoData;
             $info['sum_price'] = $info['productInfo']['attrInfo']['price'];
             //砍价
             if ($bargain_id) {

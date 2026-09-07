@@ -59,10 +59,10 @@ class StoreOrderDao extends BaseDao
         })->when($status !== '', function ($query) use ($where, $status) {
             switch ((int)$status) {
                 case 0://未支付
-                    $query->where('paid', 0)->where('status', 0)->where('refund_status', 0)->where('is_del', 0)->where('is_cancel', 0);
+                    $query->where('paid', 0)->where('status', 0)->where('refund_status', 0)->where('is_print', 0)->where('is_del', 0)->where('is_cancel', 0);
                     break;
                 case 1://已支付 未发货
-                    $query->where('paid', 1)->where('status', 0)->whereIn('refund_status', [0, 3])->when(isset($where['shipping_type']), function ($query) {
+                    $query->where('paid', 1)->where('status', 0)->whereIn('refund_status', [0, 3])->where('is_print', 0)->when(isset($where['shipping_type']), function ($query) {
                         $query->where('shipping_type', 1);
                     })->where('is_del', 0);
                     break;
@@ -70,7 +70,7 @@ class StoreOrderDao extends BaseDao
                     $query->where('paid', 1)->where('status', 4)->whereIn('refund_status', [0, 3])->where('is_del', 0);
                     break;
                 case 2://已支付  待收货
-                    $query->where('paid', 1)->where('status', 1)->whereIn('refund_status', [0, 3])->where('is_del', 0);
+                    $query->where('paid', 1)->where('status', 1)->whereIn('refund_status', [0, 3])->where('is_print', 0)->where('is_del', 0);
                     break;
                 case 3:// 已支付  已收货  待评价
                     $query->where('paid', 1)->where('status', 2)->whereIn('refund_status', [0, 3])->where('is_del', 0);
@@ -79,7 +79,7 @@ class StoreOrderDao extends BaseDao
                     $query->where('paid', 1)->where('status', 3)->whereIn('refund_status', [0, 3])->where('is_del', 0);
                     break;
                 case 5://已支付  待核销
-                    $query->where('paid', 1)->where('status', 0)->where('refund_status', 0)->where('shipping_type', 2)->where('is_del', 0);
+                    $query->where('paid', 1)->where('status', 0)->where('refund_status', 0)->where('shipping_type', 2)->where('is_print', 0)->where('is_del', 0);
                     break;
                 case 6://已支付 已核销 没有退款
                     $query->where('paid', 1)->whereIn('status', [2, 3])->where('refund_status', 0)->where('shipping_type', 2)->where('is_del', 0);
@@ -98,6 +98,18 @@ class StoreOrderDao extends BaseDao
                     break;
                 case 9://全部用户未删除的订单
                     $query->whereIn('refund_status', [0, 3])->where('is_del', 0);
+                    break;
+                case 10://定制订单待支付
+                    $query->where('is_print', 1)->where('paid', 0)->where('status', 0)->where('refund_status', 0)->where('is_del', 0)->where('is_cancel', 0);
+                    break;
+                case 11://定制订单排队中
+                    $query->where('is_print', 1)->where('paid', 1)->where('queue_status', 1)->where('refund_status', 0)->where('is_del', 0)->where('is_cancel', 0);
+                    break;
+                case 12://定制订单制作中
+                    $query->where('is_print', 1)->where('paid', 1)->where('queue_status', 2)->where('refund_status', 0)->where('is_del', 0)->where('is_cancel', 0);
+                    break;
+                case 13://定制订单待取件
+                    $query->where('is_print', 1)->where('paid', 1)->where('queue_status', 3)->where('status', 1)->where('refund_status', 0)->where('is_del', 0)->where('is_cancel', 0);
                     break;
             }
         })->when(isset($where['paid']) && $where['paid'] !== '', function ($query) use ($where) {
@@ -127,7 +139,7 @@ class StoreOrderDao extends BaseDao
         })->when(isset($where['type']), function ($query) use ($where) {
             switch ($where['type']) {
                 case 1:
-                    $query->where('combination_id', 0)->where('seckill_id', 0)->where('bargain_id', 0)->where('advance_id', 0);
+                    $query->where('combination_id', 0)->where('seckill_id', 0)->where('bargain_id', 0)->where('advance_id', 0)->where('is_print', 0);
                     break;
                 case 2:
                     $query->where('pink_id|combination_id', ">", 0);
@@ -145,6 +157,9 @@ class StoreOrderDao extends BaseDao
                     $query->where(function ($query) {
                         $query->where('one_brokerage', '>', 0)->whereOr('two_brokerage', '>', 0);
                     });
+                    break;
+                case 7:
+                    $query->where('is_print', 1);
                     break;
             }
         })->when(isset($where['pay_type']), function ($query) use ($where) {
@@ -272,6 +287,69 @@ class StoreOrderDao extends BaseDao
         return $this->search($where)->field($field)->with(array_merge(['user', 'spread', 'refund'], $with))->when($page && $limit, function ($query) use ($page, $limit) {
             $query->page($page, $limit);
         })->order($order)->select()->toArray();
+    }
+
+    /**
+     * 用户端按实际履约阶段获取待发货/待收货订单。
+     * 到店自提跳过待发货；定制打印完成待取仍保存 status=1，但归入待收货。
+     */
+    public function getUserOrderApiList(array $where, int $userStatus, array $field, int $page = 0, int $limit = 0, array $with = [])
+    {
+        $query = $this->getUserOrderApiQuery($where, $userStatus);
+        return $query->field($field)->with(array_merge(['user', 'spread', 'refund'], $with))->when($page && $limit, function ($query) use ($page, $limit) {
+            $query->page($page, $limit);
+        })->order('add_time DESC,id DESC')->select()->toArray();
+    }
+
+    /**
+     * 用户端待发货/待收货订单数量，必须与列表使用完全相同的分类条件。
+     */
+    public function getUserOrderApiCount(array $where, int $userStatus): int
+    {
+        return (int)$this->getUserOrderApiQuery($where, $userStatus)->count();
+    }
+
+    /**
+     * 用户端订单实际履约阶段查询。
+     */
+    protected function getUserOrderApiQuery(array $where, int $userStatus)
+    {
+        $query = $this->search($where);
+        if ($userStatus === 1) {
+            $query->where('paid', 1)
+                ->where('status', 0)
+                ->whereIn('refund_status', [0, 3])
+                ->where('is_print', 0)
+                ->where('shipping_type', 1)
+                ->where('is_cancel', 0);
+        } elseif ($userStatus === 2) {
+            $query->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->where('paid', 1)
+                        ->where('status', 1)
+                        ->whereIn('refund_status', [0, 3])
+                        ->where('is_print', 0)
+                        ->where('shipping_type', 1)
+                        ->where('is_cancel', 0);
+                })->orWhere(function ($query) {
+                    $query->where('paid', 1)
+                        ->whereIn('status', [0, 1])
+                        ->where('refund_status', 0)
+                        ->where('is_print', 0)
+                        ->where('shipping_type', 2)
+                        ->where('is_cancel', 0);
+                })->orWhere(function ($query) {
+                    $query->where('paid', 1)
+                        ->whereIn('status', [0, 1])
+                        ->where('refund_status', 0)
+                        ->where('is_print', 1)
+                        ->whereIn('queue_status', [1, 2, 3])
+                        ->where('shipping_type', 2)
+                        ->where('is_cancel', 0);
+                });
+            });
+        }
+        return $query;
     }
 
     /**
@@ -557,6 +635,25 @@ class StoreOrderDao extends BaseDao
                         $query1->where('paid', 0)->where('is_del', 0);
                     });
                 })->value('sum(total_num)') ?? 0;
+    }
+
+    /**
+     * 获取用户在某活动下已成功交易且仍有效的商品数量。
+     * 退款完成的订单及拆分后废弃的父订单不再占用活动限购名额。
+     * @param $uid
+     * @param $type
+     * @param $typeId
+     * @return int
+     */
+    public function getSuccessfulBuyCount($uid, $type, $typeId): int
+    {
+        return $this->getModel()
+                ->where('uid', $uid)
+                ->where($type, $typeId)
+                ->where('paid', 1)
+                ->where('refund_status', 0)
+                ->where('pid', '<>', -1)
+                ->value('sum(total_num)') ?? 0;
     }
 
     /**

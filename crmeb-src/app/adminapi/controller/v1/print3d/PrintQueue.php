@@ -69,6 +69,11 @@ class PrintQueue extends AuthController
     public function start()
     {
         [$orderId] = $this->request->postMore([['order_id', 0]], true);
+        $order = $orderId ? Db::name('store_order')->where('id', (int)$orderId)->field('is_print,expected_start_at,expected_deliver_at')->find() : null;
+        if ($order && (int)$order['is_print'] === 1
+            && ((int)$order['expected_start_at'] <= 0 || (int)$order['expected_deliver_at'] <= (int)$order['expected_start_at'])) {
+            return app('json')->fail('当前排期冲突，请先调整排期');
+        }
         if (!$orderId || !$this->services->startPrint((int)$orderId)) {
             return app('json')->fail('订单状态不允许开始打印');
         }
@@ -91,10 +96,21 @@ class PrintQueue extends AuthController
             ['expected_start_at', 0],
             ['expected_deliver_at', 0],
         ], true);
-        if (!$orderId || (int)$expectedStartAt <= time()) {
+        $expectedStartAt = (int)$expectedStartAt;
+        $expectedDeliverAt = (int)$expectedDeliverAt;
+        if ($expectedStartAt > 20000000000) {
+            $expectedStartAt = (int)floor($expectedStartAt / 1000);
+        }
+        if ($expectedDeliverAt > 20000000000) {
+            $expectedDeliverAt = (int)floor($expectedDeliverAt / 1000);
+        }
+        if (!$orderId || $expectedStartAt <= time()) {
             return app('json')->fail('排期时间必须晚于当前时间');
         }
-        if (!$this->services->adjustSchedule((int)$orderId, (int)$expectedStartAt, (int)$this->adminId, (int)$expectedDeliverAt)) {
+        if (!$expectedDeliverAt || $expectedDeliverAt <= $expectedStartAt) {
+            return app('json')->fail('预计交付时间必须晚于预计开始时间');
+        }
+        if (!$this->services->adjustSchedule((int)$orderId, $expectedStartAt, (int)$this->adminId, $expectedDeliverAt)) {
             return app('json')->fail('当前订单不能调整排期');
         }
         return app('json')->success('排期已调整');
