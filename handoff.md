@@ -834,3 +834,13 @@ git remote -v
 - H5 已由用户于 2026-09-07 18:51:25 使用 HBuilderX 导出并部署；线上备份 `/home/wsr/deploy-backups/h5-print-filename-before-20260907-190335/`，仅替换 `public/assets`、`public/pages`、`public/static`、`public/index.html`。
 - 本地导出包与线上文件一致：`index.html` SHA-256 `1daf23291ee1351cf4381cfbfb56b51121380e78f2df396ea9118c28265bb13e`；定制打印询价脚本 `pages-print-inquiry-index.b1230c7d.js` SHA-256 `143a97287c4d86c6d0b4fa9603c3663ff4a78e56122f24188b858c1ae659ad55`，脚本包含 `original_name`；首页、询价脚本及 SPA 询价路由均 HTTP 200。
 - 当前剩余动作：用户清理 H5 缓存后重新上传一个带中文或英文完整名称的 `3mf/stl/obj/stp/step` 文件，确认用户端文件列表、询价详情和后台打印队列均显示完整文件名；历史数据库中原名已丢失的记录只能显示可读兜底名。
+
+### 18.10 中文文件名仍被截断（已修复并部署）
+
+- 用户联调上传 `遮光罩_V1.3MF`、`极简相框.3MF`、`手机支架.3MF` 后，实际保存为 `_v1.3mf`、`.3mf`、`.3mf`。
+- 根因已复现：服务器 PHP `LC_CTYPE=C` 时，`basename('遮光罩_V1.3MF')` 会返回 `_V1.3MF`，纯中文主体则只剩 `.3MF`；H5 已正确发送 `original_name`，问题发生在后端文件名规范化。
+- 修复：`PrintInquiryServices::uploadFile()` 改用不依赖 locale 的 UTF-8 安全文件名处理（去除 NUL、统一路径分隔符并用 `strrpos` 取最后一段），不再调用 `basename()`；当前 H5 包无需重新构建。
+- 已部署后端：备份 `/home/wsr/deploy-backups/print-filename-unicode-before-20260907-191017/`；线上 `PrintInquiryServices.php` SHA-256 `e72160244f2d6f40169d05d6588c932446b39c8ed6ceeb18523113483d5f09da`；暂存/线上 PHP lint 通过，容器重启后正常。
+- 线上探针在当前 PHP 环境正确保留 `遮光罩_V1.3MF`、`极简相框.3MF`、`手机支架.3MF`；`/api/print/file/list` 未登录请求返回预期 HTTP 200/业务 401。
+- 已备份并修复本轮三条测试记录：`eb_print_file` ID 3/4/5 恢复为上述三个完整名称，数据库备份位于同一目录的 `eb_print_file-ids-3-5.sql`。
+- 待用户回归：清理 H5 缓存后重新上传一个中文文件名，确认用户文件列表、询价详情和后台打印队列均显示完整名称；无需重新发行 H5。

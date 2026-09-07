@@ -61,11 +61,10 @@ class PrintInquiryServices
         // name is only the extension (for example ".3mf"). Prefer the
         // explicit client-side name when it is available, while keeping the
         // framework-provided name as the native-client fallback.
-        $originalName = trim((string)$file->getOriginalName());
-        $originalName = basename(str_replace('\\', '/', $originalName));
+        $originalName = $this->normalizeFileName((string)$file->getOriginalName());
         $clientName = $request->post('original_name', '');
         $clientName = is_scalar($clientName) ? trim((string)$clientName) : '';
-        $clientName = basename(str_replace('\\', '/', $clientName));
+        $clientName = $this->normalizeFileName($clientName);
         $fileName = $clientName ?: $originalName;
         $ext = strtolower((string)pathinfo($fileName, PATHINFO_EXTENSION));
         $allowedExt = $this->getAllowedExtensions();
@@ -1021,6 +1020,20 @@ class PrintInquiryServices
             'inquiry_id' => (int)($file['inquiry_id'] ?? 0),
             'order_id' => (int)($file['order_id'] ?? 0),
         ];
+    }
+
+    /**
+     * 获取上传文件的显示名称，避免 basename() 在 C locale 下截断 UTF-8 中文。
+     */
+    protected function normalizeFileName(string $name): string
+    {
+        $name = trim(str_replace("\0", '', $name));
+        $name = str_replace('\\', '/', $name);
+        $separator = strrpos($name, '/');
+        if ($separator !== false) {
+            $name = substr($name, $separator + 1);
+        }
+        return trim($name);
     }
 
     protected function getAllowedExtensions(): array
