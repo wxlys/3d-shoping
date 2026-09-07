@@ -823,7 +823,7 @@ git remote -v
 - 暂存/线上 PHP lint 通过，PHP 容器重启后 `/api/theme_info/user` HTTP 200；本次仅后端修复，不需要重新构建 H5。
 - 待用户回归：重新进入个人中心或下拉刷新，外层角标应与订单页一致（当前用户预期待发货 2、待收货 5）。
 
-### 18.9 定制打印上传文件名显示不完整（已修复后端，前端待重新构建 H5）
+### 18.9 定制打印上传文件名显示不完整（已实现并部署）
 
 - 用户反馈：定制打印上传文件在客户端/后台显示时只剩扩展名（例如 `.3mf`）。线上只读查询确认 `eb_print_file.filename` 确实存在 `.3mf`、以及 `_???.3mf` 这类历史异常值，不是单纯的 CSS 截断。
 - 根因：H5/uni-app 通过临时文件路径上传时，服务端收到的 `getOriginalName()` 可能只有扩展名；前端原上传请求没有把 `uni.chooseFile` 返回的真实 `name` 传给接口。
@@ -831,4 +831,6 @@ git remote -v
 - 已同步文件：Git 工作区的 `crmeb-src/template/uni-app/pages/print/inquiry/index.vue` 与 HBuilderX 工作目录 `F:\procedure\codex\program\test_project\crmeb-src\template\uni-app\pages\print\inquiry\index.vue` SHA-256 一致（`262d438874384c2de81f56a1ed0c31cef26b0dccd8d1e5c3dad12915f21083c4`）。
 - 已部署后端：服务器备份 `/home/wsr/deploy-backups/print-filename-fix-before-20260907-181651/`；线上 `PrintInquiryServices.php` SHA-256 `10a9ec74905283d656ed182ae02fb308ad5841cb4375fda9cabd982c10df7fb0`；暂存与线上 PHP lint 均通过，PHP 容器重启后运行正常。
 - 线上探针：`formatFile(['filename'=>'.3mf','ext'=>'3mf'])` 返回 `模型文件.3mf`；合法 `desk-tray.3mf` 保持原名；`/api/print/file/list` 未登录请求返回预期 HTTP 200/业务 401。
-- 当前剩余动作：用户需使用 HBuilderX 重新导出并部署 H5，使新上传请求携带真实文件名；旧记录会立即显示可读兜底名，新上传记录在重建后的 H5 上显示真实文件名。后台询价/打印队列复用同一 `formatFile()` 返回值，无需单独改后台。
+- H5 已由用户于 2026-09-07 18:51:25 使用 HBuilderX 导出并部署；线上备份 `/home/wsr/deploy-backups/h5-print-filename-before-20260907-190335/`，仅替换 `public/assets`、`public/pages`、`public/static`、`public/index.html`。
+- 本地导出包与线上文件一致：`index.html` SHA-256 `1daf23291ee1351cf4381cfbfb56b51121380e78f2df396ea9118c28265bb13e`；定制打印询价脚本 `pages-print-inquiry-index.b1230c7d.js` SHA-256 `143a97287c4d86c6d0b4fa9603c3663ff4a78e56122f24188b858c1ae659ad55`，脚本包含 `original_name`；首页、询价脚本及 SPA 询价路由均 HTTP 200。
+- 当前剩余动作：用户清理 H5 缓存后重新上传一个带中文或英文完整名称的 `3mf/stl/obj/stp/step` 文件，确认用户端文件列表、询价详情和后台打印队列均显示完整文件名；历史数据库中原名已丢失的记录只能显示可读兜底名。
