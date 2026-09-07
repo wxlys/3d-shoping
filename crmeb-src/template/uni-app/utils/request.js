@@ -21,6 +21,35 @@ import {
 import store from '../store';
 import i18n from './lang.js';
 
+function normalizeAppAssetUrl(value) {
+	// #ifdef APP-PLUS
+	if (typeof value !== 'string') return value;
+	const baseUrl = HTTP_REQUEST_URL.replace(/\/+$/, '');
+	if (/^\/(uploads|statics)\//i.test(value)) return baseUrl + value;
+	const legacyUrl = value.match(/^https?:\/\/demo\.crmeb\.com(\/(?:uploads|statics)\/.*)$/i);
+	if (legacyUrl) return baseUrl + legacyUrl[1];
+	// #endif
+	return value;
+}
+
+function normalizeAppAssets(value) {
+	// #ifdef APP-PLUS
+	if (typeof value === 'string') return normalizeAppAssetUrl(value);
+	if (Array.isArray(value)) {
+		for (let index = 0; index < value.length; index++) {
+			value[index] = normalizeAppAssets(value[index]);
+		}
+		return value;
+	}
+	if (value && Object.prototype.toString.call(value) === '[object Object]') {
+		Object.keys(value).forEach((key) => {
+			value[key] = normalizeAppAssets(value[key]);
+		});
+	}
+	// #endif
+	return value;
+}
+
 /**
  * 发送请求
  */
@@ -53,6 +82,7 @@ function baseRequest(url, method, data, {
 			data: data || {},
 			timeout: TIMEOUT,
 			success: (res) => {
+				res.data = normalizeAppAssets(res.data);
 				if (noVerify)
 					reslove(res.data, res);
 				else if (res.data.status == 200)

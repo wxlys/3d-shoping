@@ -844,3 +844,19 @@ git remote -v
 - 线上探针在当前 PHP 环境正确保留 `遮光罩_V1.3MF`、`极简相框.3MF`、`手机支架.3MF`；`/api/print/file/list` 未登录请求返回预期 HTTP 200/业务 401。
 - 已备份并修复本轮三条测试记录：`eb_print_file` ID 3/4/5 恢复为上述三个完整名称，数据库备份位于同一目录的 `eb_print_file-ids-3-5.sql`。
 - 待用户回归：清理 H5 缓存后重新上传一个中文文件名，确认用户文件列表、询价详情和后台打印队列均显示完整名称；无需重新发行 H5。
+
+### 18.11 Android APP 基座首轮联调问题（已实现，待用户真机回归）
+
+- 用户在 Android App 基座联调发现三项问题：模型文件上传点击无效；首页导航、占位商品和轮播图图片丢失（Web 正常）；普通商品详情缺少返回按钮。
+- 文件上传根因：当前项目是经典 uni-app，`uni.chooseFile` 不支持 APP 平台，原来的 `#ifndef MP-WEIXIN` 会在 APP 中编译该无效调用。新增 `utils/appFilePicker.js`，Android 使用系统 `ACTION_OPEN_DOCUMENT` 选择文件，读取 `_display_name/_size`，将 `content://` 内容复制到应用缓存后交给现有 `uni.uploadFile`，并继续传递真实 `original_name`；前端和后端均保留 STL/OBJ/3MF/STP/STEP 校验。`manifest.json` 增加 `Invocation` 模块。
+- 图片根因：系统 `site_url` 为空，接口返回 `/uploads/...`、`/statics/...` 相对地址；旧主题还保留 `demo.crmeb.com` 地址，而相关文件实际已导入当前服务器。APP 不具备 H5 同源基址。`utils/request.js` 仅在 APP 编译中递归补全相对资源地址，并将旧演示域名下的 uploads/statics 路径映射到当前 `HTTP_REQUEST_URL`；Web 行为保持不变。
+- 返回按钮根因：商品详情使用 `navigationStyle: custom`，模板又通过 `#ifndef APP-PLUS` 排除了自定义返回控件。已为 APP 单独增加位于状态栏安全区下方的返回按钮，继续复用现有 `returns()`。
+- 已同步 Git 工作区和 HBuilderX 工作目录：`utils/appFilePicker.js`、`utils/request.js`、`pages/print/inquiry/index.vue`、`pages/goods_details/index.vue`、`manifest.json`；`git diff --check` 和 JS 语法检查通过。
+- 在用户说明由其自行编译前，已执行一次 HBuilderX 4.87 Android 本地 App 资源编译用于条件编译检查，结果成功；只生成 `unpackage/resources`，未生成 APK、未安装到手机、未部署线上。之后不再由 Codex 执行 APP 基座编译或正式打包。另做的 Web 编译也仅更新本地导出目录，未部署线上。
+- 当前下一步：由用户重新“运行到 Android App 基座”，验证系统文件选择器能打开并完成中文模型文件上传、导航/占位商品/轮播图片恢复、商品详情返回按钮可见可用；若三项通过，再进入正式签名打包。
+
+### 18.12 Android APP 基座真机联调通过
+
+- 用户于 2026-09-07 20:08 使用 HBuilderX 自行启动 Android 调试基座，应用正常启动，并确认上述三项问题在手机端均已恢复正常。
+- 已将 HBuilderX 工作目录中的正式应用元数据（`3D-help`、版本 `1.0.0.0`、版本号 `100000000`）同步回 Git 工作区，避免后续检出源码时退回 CRMEB 默认信息。
+- 第三步已完成；下一步由用户在 HBuilderX 进入第四步正式打包。Codex 不再代为执行 APP 编译或打包。

@@ -68,6 +68,9 @@
 <script>
 import { HTTP_REQUEST_URL, TOKENNAME } from '@/config/app.js';
 import { createPrintInquiry, getPrintFileInfo, getPrintFileList } from '@/api/print3d.js';
+// #ifdef APP-PLUS
+import { chooseAndroidFile } from '@/utils/appFilePicker.js';
+// #endif
 
 export default {
   data() {
@@ -124,7 +127,7 @@ export default {
         success: (res) => this.uploadSelectedFile(res.tempFiles && res.tempFiles[0]),
       });
       // #endif
-      // #ifndef MP-WEIXIN
+      // #ifdef H5
       uni.chooseFile({
         count: 1,
         extension: ['stl', 'obj', '3mf', 'stp', 'step'],
@@ -136,6 +139,22 @@ export default {
           this.uploadSelectedFile(file);
         },
       });
+      // #endif
+      // #ifdef APP-PLUS
+      chooseAndroidFile()
+        .then((file) => {
+          const ext = (file.name.split('.').pop() || '').toLowerCase();
+          if (!['stl', 'obj', '3mf', 'stp', 'step'].includes(ext)) {
+            this.$util.Tips({ title: '仅支持 STL、OBJ、3MF、STP、STEP 格式' });
+            return;
+          }
+          this.uploadSelectedFile(file);
+        })
+        .catch((error) => {
+          if (!error || !error.cancel) {
+            this.$util.Tips({ title: (error && error.msg) || '模型文件选择失败' });
+          }
+        });
       // #endif
     },
     uploadSelectedFile(file) {

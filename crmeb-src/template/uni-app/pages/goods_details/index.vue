@@ -30,6 +30,16 @@
         <!-- #endif -->
       </view>
       <!-- #endif -->
+      <!-- #ifdef APP-PLUS -->
+      <view
+        id="home-app"
+        class="home acea-row row-center-wrapper"
+        :class="[opacity > 0.5 ? 'on' : '']"
+        :style="{ top: `calc(${sysHeight} + 16rpx)` }"
+      >
+        <view class="iconfont icon-fanhui2" @tap="returns"></view>
+      </view>
+      <!-- #endif -->
       <!-- #ifdef H5 -->
       <view
         id="home"
