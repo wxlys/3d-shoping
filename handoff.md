@@ -813,3 +813,12 @@ git remote -v
 - 已部署文件：`app/dao/order/StoreOrderDao.php`；备份目录 `/home/wsr/deploy-backups/order-count-fix-before-20260907-180109/`。线上文件 SHA-256：`471697a67afa9f9aef72f3c6951ed0087f1f761c5df0ff1a6f9d0046fa40e839`。
 - 暂存/线上 PHP lint 通过，PHP 容器重启后接口 HTTP 200，探针和临时目录已清理；本次仅后端修复，不需要重新构建 H5。
 - 待用户回归：刷新订单页或重新登录，角标应显示实际数量；若仍为旧值，清理 H5 缓存后重新请求 `/api/order/data`。
+
+### 18.8 个人中心外层订单角标口径统一（已实现并部署）
+
+- 用户反馈：订单页内部数量已正常，但个人中心外层“订单中心”菜单角标仍异常。
+- 根因：个人中心调用 `/theme_info/user`，`PublicController::themeInfo()` 原来另行按数据库 `status` 统计菜单数量，未使用订单页已经修复的配送/自提/定制履约阶段分类。
+- 修复：个人中心菜单角标改为直接复用 `StoreOrderServices::getOrderData($uid)` 的 `order_count`、`unpaid_count`、`unshipped_count`、`received_count`、`evaluated_count`、`complete_count`；退款角标保持原退款服务统计。
+- 已部署文件：`app/api/controller/v1/PublicController.php`；备份目录 `/home/wsr/deploy-backups/personal-center-count-fix-before-20260907-181014/`；线上 SHA-256：`efe504b71a1a453bf930435f0928139728661bc59aace28a23af2034de0aed1d`。
+- 暂存/线上 PHP lint 通过，PHP 容器重启后 `/api/theme_info/user` HTTP 200；本次仅后端修复，不需要重新构建 H5。
+- 待用户回归：重新进入个人中心或下拉刷新，外层角标应与订单页一致（当前用户预期待发货 2、待收货 5）。
