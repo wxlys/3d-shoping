@@ -21,4 +21,10 @@ crmeb-src/public/uploads/
 # 前端构建产物与工具
 node_modules/
 dist/
-tools/
+tools/*
+!tools/sms-mock/
+!tools/sms-mock/app.py
+!tools/sms-mock/Dockerfile
+!tools/sms-mock/README.md
+!tools/sms-mock/requirements.txt
+tools/sms-mock/__pycache__/

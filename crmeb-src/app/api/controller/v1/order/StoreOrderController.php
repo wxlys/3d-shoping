@@ -35,11 +35,13 @@ use app\services\pay\YuePayServices;
 use app\services\product\product\StoreProductReplyServices;
 use app\services\shipping\ShippingTemplatesServices;
 use crmeb\services\CacheService;
+use crmeb\services\HttpService;
 use Psr\SimpleCache\InvalidArgumentException;
 use think\db\exception\DataNotFoundException;
 use think\db\exception\DbException;
 use think\db\exception\ModelNotFoundException;
 use think\facade\Log;
+use think\facade\Config;
 use think\Response;
 
 /**
@@ -270,9 +272,6 @@ class StoreOrderController
             return app('json')->fail('订单不存在');
         if ($order['paid'])
             return app('json')->fail('订单已支付');
-        if (!in_array($paytype, [PayServices::WEIXIN_PAY, PayServices::ALIAPY_PAY, PayServices::OFFLINE_PAY], true)) {
-            return app('json')->fail('当前仅支持微信、支付宝和线下支付');
-        }
         if ($order['pink_id'] && $services->isPinkStatus($order['pink_id'])) {
             return app('json')->fail('该订单已失效');
         }
@@ -308,14 +307,19 @@ class StoreOrderController
                     return app('json')->status('success', '支付失败');
                 }
             default:
-                // 模拟支付：开启后跳过真实支付渠道，直接标记支付成功（测试环境使用）
-                if ((int)sys_config('pay_mock_enabled', 0) === 1) {
+                // 当前系统支付统一经 Flask 服务处理；数据库开关保留用于旧环境兼容。
+                $mockEnabled = Config::get('pay.mock.enabled', false) || (int)sys_config('pay_mock_enabled', 0) === 1;
+                if ($mockEnabled) {
+                    $mockResult = $this->requestMockPayment($order->toArray(), $paytype);
+                    if (($mockResult['ok'] ?? false) !== true) {
+                        return app('json')->status('pay_error', $mockResult['message'] ?? '支付失败');
+                    }
                     /** @var StoreOrderSuccessServices $success */
                     $success = app()->make(StoreOrderSuccessServices::class);
                     $mockOrder = $order->toArray();
                     $mockOrder['pay_type'] = PayServices::MOCK_PAY;
                     $payRes = $success->paySuccess($mockOrder, PayServices::MOCK_PAY, [
-                        'trade_no' => 'MOCK' . date('YmdHis') . mt_rand(1000, 9999)
+                        'trade_no' => $mockResult['transaction_id'] ?? ('MOCK' . date('YmdHis') . mt_rand(1000, 9999))
                     ]);
                     if ($payRes) {
                         return app('json')->status('success', '支付成功', ['order_id' => $orderInfo['order_id'], 'key' => $orderInfo['unique']]);
@@ -325,6 +329,38 @@ class StoreOrderController
                 $payInfo = $payServices->beforePay($order->toArray(), $paytype, ['quitUrl' => $quitUrl]);
                 return app('json')->status($payInfo['status'], $payInfo['payInfo']);
         }
+    }
+
+    /**
+     * 请求统一 Flask 支付服务。
+     * 正常业务只调用 /mock/payment/pay；异常场景由接口测试显式调用专用场景路由。
+     *
+     * @param array $orderInfo
+     * @param string $paytype
+     * @return array
+     */
+    protected function requestMockPayment(array $orderInfo, string $paytype): array
+    {
+        $url = rtrim((string)Config::get('pay.mock.url'), '/') . '/mock/payment/pay';
+        $timeout = max(1, (int)Config::get('pay.mock.timeout', 5));
+        $headers = ['Accept: application/json'];
+        $token = (string)Config::get('pay.mock.token', '');
+        if ($token !== '') {
+            $headers[] = 'X-Mock-Token: ' . $token;
+        }
+        $response = HttpService::postRequest($url, [
+            'order_id' => (string)($orderInfo['order_id'] ?? ''),
+            'amount' => (string)($orderInfo['pay_price'] ?? '0.00'),
+            'paytype' => $paytype,
+        ], $headers, $timeout);
+        if ($response === false) {
+            return ['ok' => false, 'message' => '支付 Mock 服务不可用'];
+        }
+        $payload = json_decode((string)$response, true);
+        if (!is_array($payload) || ($payload['ok'] ?? false) !== true) {
+            return ['ok' => false, 'message' => is_array($payload) ? ($payload['message'] ?? '支付 Mock 返回失败') : '支付 Mock 返回无效'];
+        }
+        return $payload;
     }
 
     /**

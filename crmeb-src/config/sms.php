@@ -9,6 +9,8 @@
 // | Author: CRMEB Team <admin@crmeb.com>
 // +----------------------------------------------------------------------
 
+use think\facade\Env;
+
 return [
     //默认扩展
     'default' => 'yihaotong',
@@ -18,6 +20,13 @@ return [
     'maxMinuteCount' => 5,
     //单个IP每日发送上限
     'maxIpCount' => 50,
+    // 当前系统短信服务。线上由统一 Flask 服务提供成功响应，异常路由仅供接口测试。
+    'mock' => [
+        'enabled' => filter_var(Env::get('sms.mock.enabled', Env::get('SMS_MOCK_ENABLED', false)), FILTER_VALIDATE_BOOLEAN),
+        'url' => rtrim((string)Env::get('sms.mock.url', Env::get('SMS_MOCK_URL', 'http://127.0.0.1:5055')), '/'),
+        'timeout' => (int)Env::get('sms.mock.timeout', Env::get('SMS_MOCK_TIMEOUT', 3)),
+        'token' => (string)Env::get('sms.mock.token', Env::get('SMS_MOCK_TOKEN', Env::get('MOCK_SHARED_TOKEN', ''))),
+    ],
     //驱动模式
     'stores' => [
         //一号通

@@ -202,13 +202,50 @@ class LoginServices extends BaseServices
         if ($this->dao->getOne(['account' => $phone, 'is_del' => 0]) && $type == 'register') {
             throw new ApiException('手机号已注册');
         }
-        $code = rand(100000, 999999);
+        // 测试环境使用 Flask Mock 返回验证码；未开启时保持原短信供应商链路。
+        if (Config::get('sms.mock.enabled', false)) {
+            $code = $this->requestMockVerifyCode($phone, $type, $time);
+        } else {
+            $code = rand(100000, 999999);
+        }
         $data['code'] = $code;
         $data['time'] = $time;
-        $res = $services->send(true, $phone, $data, 'verify_code');
+        $res = Config::get('sms.mock.enabled', false) ? true : $services->send(true, $phone, $data, 'verify_code');
         if ($res !== true)
             throw new ApiException('短信平台验证码发送失败');
         return $code;
+    }
+
+    /**
+     * 请求测试环境 Flask 短信 Mock，并返回 Mock 保存的验证码。
+     * @param string $phone
+     * @param string $type
+     * @param int|float $time 验证码有效期（分钟）
+     * @return string
+     */
+    protected function requestMockVerifyCode(string $phone, string $type, $time): string
+    {
+        $url = rtrim((string)Config::get('sms.mock.url'), '/') . '/mock/sms/send';
+        $timeout = max(1, (int)Config::get('sms.mock.timeout', 3));
+        $headers = ['Accept: application/json'];
+        $token = (string)Config::get('sms.mock.token', '');
+        if ($token !== '') {
+            $headers[] = 'X-Mock-Token: ' . $token;
+        }
+        $response = HttpService::postRequest($url, [
+            'phone' => $phone,
+            'type' => $type,
+            'ttl' => max(1, (int)$time * 60),
+        ], $headers, $timeout);
+        if ($response === false) {
+            throw new ApiException('短信 Mock 服务不可用，请确认 Flask 服务已启动');
+        }
+        $payload = json_decode((string)$response, true);
+        $code = is_array($payload) ? ($payload['code'] ?? '') : '';
+        if (!preg_match('/^\d{6}$/', (string)$code)) {
+            throw new ApiException('短信 Mock 返回验证码无效');
+        }
+        return (string)$code;
     }
 
     /**
